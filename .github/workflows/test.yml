@@ -39,6 +39,12 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ hashFiles('setup.py') }}
+
       - name: Install python dependencies
         shell: bash
         run: |
