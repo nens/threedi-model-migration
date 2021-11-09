@@ -10,9 +10,9 @@ with open('README.rst') as readme_file:
 with open('CHANGES.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=7.0', ]
+requirements = ['Click>=7.0', 'mercurial']
 
-test_requirements = ['pytest>=3', ]
+test_requirements = ['pytest>=3',  ]
 
 setup(
     author="Casper van der Wel",
