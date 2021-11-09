@@ -17,7 +17,7 @@ test_requirements = ['pytest>=3', ]
 setup(
     author="Casper van der Wel",
     author_email='casper.vanderwel@nelen-schuurmans.nl',
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
@@ -45,7 +45,6 @@ setup(
     extras_require={
         "test": test_requirements,
     },
-    python_requires=">=3.7",
     url='https://github.com/nens/threedi_model_migration',
     version='0.1.0',
     zip_safe=False,
