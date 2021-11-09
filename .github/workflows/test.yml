@@ -1,0 +1,52 @@
+name: Linux
+
+# Run on PR requests. And on master itself.
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  TestLinux:
+    name: Python ${{ matrix.python }} ${{ matrix.display_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 2018
+          - python: 3.7
+            pins: ""
+          # 2019
+          - python: 3.8
+            pins: ""
+          # 2020
+          - python: 3.9
+            pins: ""
+          # current
+          - python: "3.10"
+            display_name: "latest"
+            pins: ""
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          lfs: true
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install python dependencies
+        shell: bash
+        run: |
+          pip install --disable-pip-version-check --upgrade pip setuptools wheel
+          pip install ${{ matrix.pins }}
+          pip install -e .[test] --no-build-isolation
+          pip list
+
+      - name: Run unittests
+        shell: bash
+        run: pytest
