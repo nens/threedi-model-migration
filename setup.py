@@ -10,7 +10,7 @@ with open('README.rst') as readme_file:
 with open('CHANGES.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=7.0', 'mercurial']
+requirements = ['Click>=7.0', 'threedi-modelchecker', 'mercurial']
 
 test_requirements = ['pytest>=3',  ]
 
