@@ -1,6 +1,7 @@
 """Console script for threedi_model_migration."""
 from .repository import DEFAULT_REMOTE
 from .repository import Repository
+from dataclasses import asdict
 
 import click
 import csv
@@ -9,6 +10,16 @@ import json
 import logging
 import pathlib
 import sys
+
+
+INSPECT_CSV_FIELDNAMES = [
+    "revision_nr",
+    "revision_hash",
+    "last_update",
+    "sqlite_path",
+    "settings_id",
+    "settings_name",
+]
 
 
 @click.group()
@@ -76,14 +87,6 @@ def default_json_serializer(o):
 
 @main.command()
 @click.option(
-    "-f",
-    "--format",
-    type=click.Choice(["json", "csv"], case_sensitive=False),
-    default="csv",
-    required=True,
-    help="What format to output",
-)
-@click.option(
     "-i",
     "--indent",
     type=int,
@@ -95,7 +98,7 @@ def default_json_serializer(o):
     "--dialect",
     type=str,
     default="excel",
-    help="The dialect in case of csv output",
+    help="The dialect of the csv output",
 )
 @click.option(
     "-l",
@@ -103,49 +106,49 @@ def default_json_serializer(o):
     type=click.DateTime(formats=["%Y-%m-%d"]),
     help="Revisions older than this are filtered",
 )
+@click.option(
+    "-t",
+    "--target_path",
+    type=click.Path(exists=False, writable=True, path_type=pathlib.Path),
+    help="Optional path to save output JSON file into",
+)
+@click.option(
+    "-q/-nq",
+    "--quiet/--not-quiet",
+    type=bool,
+    default=False,
+)
 @click.pass_context
-def inspect(ctx, format, indent, dialect, last_update):
+def inspect(ctx, indent, dialect, last_update, target_path, quiet):
     """Inspects revisions, sqlites, and global settings in a repository"""
     # convert last_update and localize
     repository = ctx.obj["repository"]
-    stdout_text = click.get_text_stream("stdout")
 
-    fieldnames = [
-        "revision_nr",
-        "revision_hash",
-        "last_update",
-        "sqlite_path",
-        "settings_id",
-        "settings_name",
-    ]
-
-    if format == "csv":
-        writer = csv.DictWriter(stdout_text, fieldnames=fieldnames, dialect=dialect)
+    if not quiet:
+        stdout = click.get_text_stream("stdout")
+        writer = csv.DictWriter(
+            stdout, fieldnames=INSPECT_CSV_FIELDNAMES, dialect=dialect
+        )
         writer.writeheader()
 
     result = []
     for revision, sqlite, settings in repository.inspect(last_update):
-        result.append(
-            {
-                "revision_nr": revision.revision_nr,
-                "revision_hash": revision.revision_hash,
-                "last_update": revision.last_update,
-                "sqlite_path": sqlite.sqlite_path,
-                "settings_id": settings.settings_id,
-                "settings_name": settings.settings_name,
-            }
-        )
+        record = {**asdict(revision), **asdict(sqlite), **asdict(settings)}
+        record.pop("repository")
+        record.pop("revision")
+        record.pop("sqlite")
+        if not quiet:
+            writer.writerow({x: record[x] for x in INSPECT_CSV_FIELDNAMES})
+        result.append(record)
 
-        if format == "csv":
-            writer.writerow({x: result[-1][x] for x in fieldnames})
-
-    if format == "json":
-        json.dump(
-            {"repository": repository.name, "combinations": result},
-            stdout_text,
-            indent=indent,
-            default=default_json_serializer,
-        )
+    if target_path is not None:
+        with target_path.open("w") as f:
+            json.dump(
+                {"repository": repository.name, "combinations": result},
+                f,
+                indent=indent,
+                default=default_json_serializer,
+            )
 
 
 @main.command()
