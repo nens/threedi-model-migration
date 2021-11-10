@@ -119,6 +119,27 @@ revision_3 = RepoRevision(
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[2, 1], [2]],
         ),
+        # Setting is renamed: it is tracked
+        (
+            [
+                RepoSettings(1, "b", RepoSqlite("db1", revision_2)),
+                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
+            ],
+            ["testrepo-db1-b"],
+            [[2, 1]],
+        ),
+        # Settings entry skips a revision; it counts as a new one
+        (
+            [
+                RepoSettings(2, "c", RepoSqlite("db1", revision_3)),
+                RepoSettings(1, "a", RepoSqlite("db1", revision_3)),
+                RepoSettings(1, "a", RepoSqlite("db1", revision_2)),
+                RepoSettings(2, "b", RepoSqlite("db1", revision_1)),
+                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
+            ],
+            ["testrepo-db1-a", "testrepo-db1-b", "testrepo-db1-c"],
+            [[3, 2, 1], [1], [3]],
+        ),
     ],
 )
 def test_repo_to_schema(settings, expected_names, expected_nrs):
