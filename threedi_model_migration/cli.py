@@ -1,14 +1,17 @@
 """Console script for threedi_model_migration."""
+from .repository import DEFAULT_REMOTE
+from .repository import Repository
+from .repository import RepositoryRevision
+from dataclasses import asdict
+from dataclasses import fields
+
 import click
-import sys
-import pathlib
-import datetime
-from dataclasses import asdict, fields
-
-import json
 import csv
+import datetime
+import json
+import pathlib
+import sys
 
-from .repository import Repository, RepositoryRevision, DEFAULT_REMOTE
 
 @click.group()
 @click.option(
@@ -53,11 +56,12 @@ def default_json_serializer(o):
     if isinstance(o, (datetime.date, datetime.datetime)):
         return o.isoformat()
 
+
 @main.command()
 @click.option(
     "-f",
     "--format",
-    type=click.Choice(['json', 'csv'], case_sensitive=False),
+    type=click.Choice(["json", "csv"], case_sensitive=False),
     default="csv",
     required=True,
     help="What format to output",
@@ -81,15 +85,18 @@ def ls(ctx, format, indent, dialect):
     """Lists revisions in a repository"""
     repository = ctx.obj["repository"]
     result_dct = [asdict(revision) for revision in repository.revisions]
-    stdout_text = click.get_text_stream('stdout')
+    stdout_text = click.get_text_stream("stdout")
     if format == "json":
-        json.dump(result_dct, stdout_text, indent=indent, default=default_json_serializer)
+        json.dump(
+            result_dct, stdout_text, indent=indent, default=default_json_serializer
+        )
     elif format == "csv":
         fieldnames = [x.name for x in fields(RepositoryRevision)]
         writer = csv.DictWriter(stdout_text, fieldnames=fieldnames, dialect=dialect)
         writer.writeheader()
         for revision in result_dct:
             writer.writerow(revision)
+
 
 @main.command()
 @click.argument(
@@ -102,6 +109,7 @@ def checkout(ctx, revision_hash):
     """Lists revisions in a repository"""
     repository = ctx.obj["repository"]
     repository.checkout(revision_hash)
+
 
 if __name__ == "__main__":
     sys.exit(main())  # pragma: no cover
