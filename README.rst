@@ -14,21 +14,28 @@ Features
 Usage
 -----
 
-Help::
+First cd into the root that contains your local repositories (or a tmpdir)::
 
->>> threedi_model_migration --help
+$ cd /my/path/to/models
+
+Alternatively specify this dir using `--base_path`.
+
+Show help::
+
+$ threedi_model_migration --help
 
 Clone / pull::
 
->>> threedi_model_migration -b ./var -n v2_bergermeer download
+$ threedi_model_migration --name v2_bergermeer download
 
-List revisions::
+Inspect revisions and write to the inspection file in `/_inspection/{repo_name}.json`::
 
->>> threedi_model_migration -b ./var -n v2_bergermeer ls --format csv
+$ threedi_model_migration --name v2_bergermeer inspect --last_update 2019-01-01
 
-Checkout a revision::
+Create a migration plan in `/_inspection/{repo_name}.plan.json`::
 
->>> threedi_model_migration -b ./var -n v2_bergermeer checkout 63a9a8cd
+$ threedi_model_migration --name v2_bergermeer plan
+v2_bergermeer-v2_bergermeer.sqlite-simple_infil_no_grndwtr: 95-107
 
 Credits
 -------
