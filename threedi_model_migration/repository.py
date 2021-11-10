@@ -6,6 +6,7 @@ from typing import List
 from typing import Optional
 
 import logging
+import sqlite3
 
 
 logger = logging.getLogger(__name__)
@@ -14,16 +15,67 @@ DEFAULT_REMOTE = "https://hg.lizard.net"
 
 
 @dataclass
-class RepositoryRevision:
+class RepoSettings:
+    settings_id: int
+    settings_name: str
+    sqlite: "RepoSqlite"
+
+    def __repr__(self):
+        return f"RepoSettings(id={self.settings_id}, name={self.settings_name})"
+
+
+@dataclass
+class RepoSqlite:
+    sqlite_path: Path  # relative path within repository
+    revision: "RepoRevision"
+
+    @property
+    def settings(self) -> List[RepoSettings]:
+        self.revision.repository.checkout(self.revision.revision_hash)
+        full_path = self.revision.repository.path / self.sqlite_path
+
+        con = sqlite3.connect(full_path)
+        try:
+            with con:
+                cursor = con.execute(
+                    "SELECT id, name FROM v2_global_settings ORDER BY id"
+                )
+            records = cursor.fetchall()
+        except sqlite3.OperationalError as e:
+            logger.warning(f"{self} OperationalError {e}")
+            return []
+        finally:
+            con.close()
+
+        return [RepoSettings(*record, sqlite=self) for record in records]
+
+    def __repr__(self):
+        return f"RepoSqlite({self.sqlite_path})"
+
+
+@dataclass
+class RepoRevision:
+    repository: "Repository"
     revision_nr: int
     revision_hash: str
     last_update: datetime
     commit_msg: str
     commit_user: str
 
+    @property
+    def sqlites(self) -> List["RepoSqlite"]:
+        """Return a list of sqlites in this revision"""
+        self.repository.checkout(self.revision_hash)
+        base = self.repository.path.resolve()
+        glob = base.glob("*.sqlite")
+        return [
+            RepoSqlite(revision=self, sqlite_path=path.relative_to(base))
+            for path in sorted(glob)
+        ]
+
     def __repr__(self):
         first_line = self.commit_msg.split("\n")[0]
-        return f"RepositoryRevision({self.revision_nr}: {first_line})"
+        return f"RepoRevision(revision_hash={self.revision_hash[:8]}, commit_msg={first_line})"
 
 
 class Repository:
@@ -33,7 +85,7 @@ class Repository:
         if remote.endswith("/"):
             remote = remote[:-1]
         self.remote = remote
-        self._revisions: Optional[List[RepositoryRevision]] = None
+        self._revisions: Optional[List[RepoRevision]] = None
 
     @property
     def path(self):
@@ -60,10 +112,12 @@ class Repository:
         logger.info("Done.")
 
     @property
-    def revisions(self) -> List[RepositoryRevision]:
+    def revisions(self) -> List["RepoRevision"]:
         """Return a list of revisions, ordered newest first (calls hg log)"""
         if self._revisions is None:
-            self._revisions = [RepositoryRevision(**x) for x in hg.log(self.path)]
+            self._revisions = [
+                RepoRevision(repository=self, **x) for x in hg.log(self.path)
+            ]
         return self._revisions
 
     def checkout(self, revision_hash: str):

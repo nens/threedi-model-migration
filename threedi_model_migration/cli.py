@@ -1,14 +1,12 @@
 """Console script for threedi_model_migration."""
 from .repository import DEFAULT_REMOTE
 from .repository import Repository
-from .repository import RepositoryRevision
-from dataclasses import asdict
-from dataclasses import fields
 
 import click
 import csv
 import datetime
 import json
+import logging
 import pathlib
 import sys
 
@@ -34,14 +32,31 @@ import sys
     default=DEFAULT_REMOTE,
     help="Remote domain that contains the repositories to download",
 )
+@click.option(
+    "-v",
+    "--verbosity",
+    type=int,
+    default=1,
+    help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
+)
 @click.pass_context
-def main(ctx, base_path, name, remote):
+def main(ctx, base_path, name, remote, verbosity):
     """Console script for threedi_model_migration."""
     if not base_path:
         base_path = pathlib.Path.cwd()
 
     ctx.ensure_object(dict)
     ctx.obj["repository"] = Repository(base_path, name, remote)
+
+    # setup logging
+    LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
+    logger = logging.getLogger("threedi_model_migration")
+    logger.setLevel(LOGGING_LUT[verbosity])
+    ch = logging.StreamHandler()
+    ch.setLevel(LOGGING_LUT[verbosity])
+    formatter = logging.Formatter("%(asctime)s: %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 
 @main.command()
@@ -55,6 +70,8 @@ def download(ctx):
 def default_json_serializer(o):
     if isinstance(o, (datetime.date, datetime.datetime)):
         return o.isoformat()
+    elif isinstance(o, pathlib.Path):
+        return str(o)
 
 
 @main.command()
@@ -80,22 +97,77 @@ def default_json_serializer(o):
     default="excel",
     help="The dialect in case of csv output",
 )
+@click.option(
+    "-l",
+    "--last_update",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Revisions older than this are filtered",
+)
+@click.option(
+    "--inspect/--no-inspect",
+    default=False,
+)
 @click.pass_context
-def ls(ctx, format, indent, dialect):
+def ls(ctx, format, indent, dialect, inspect, last_update):
     """Lists revisions in a repository"""
+    # convert last_update and localize
     repository = ctx.obj["repository"]
-    result_dct = [asdict(revision) for revision in repository.revisions]
     stdout_text = click.get_text_stream("stdout")
-    if format == "json":
-        json.dump(
-            result_dct, stdout_text, indent=indent, default=default_json_serializer
-        )
-    elif format == "csv":
-        fieldnames = [x.name for x in fields(RepositoryRevision)]
+
+    fieldnames = [
+        "revision_nr",
+        "revision_hash",
+        "last_update",
+    ]
+    if inspect:
+        fieldnames += ["sqlite_path", "settings_id", "settings_name"]
+
+    if format == "csv":
         writer = csv.DictWriter(stdout_text, fieldnames=fieldnames, dialect=dialect)
         writer.writeheader()
-        for revision in result_dct:
-            writer.writerow(revision)
+
+    result = []
+    for revision in repository.revisions:
+        if last_update is not None:
+            truncated_revision_last_update = revision.last_update.replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+            )
+            if truncated_revision_last_update < last_update:
+                continue
+        if inspect:
+            combinations = [
+                {
+                    "revision_nr": revision.revision_nr,
+                    "revision_hash": revision.revision_hash,
+                    "last_update": revision.last_update,
+                    "sqlite_path": sqlite.sqlite_path,
+                    "settings_id": settings.settings_id,
+                    "settings_name": settings.settings_name,
+                }
+                for sqlite in revision.sqlites
+                for settings in sqlite.settings
+            ]
+        else:
+            combinations = [
+                {
+                    "revision_nr": revision.revision_nr,
+                    "revision_hash": revision.revision_hash,
+                    "last_update": revision.last_update,
+                }
+            ]
+        if format == "csv":
+            for combination in combinations:
+                writer.writerow({x: combination[x] for x in fieldnames})
+        else:
+            result += combinations
+
+    if format == "json":
+        json.dump(
+            {"repository": repository.name, "combinations": result},
+            stdout_text,
+            indent=indent,
+            default=default_json_serializer,
+        )
 
 
 @main.command()
