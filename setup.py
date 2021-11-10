@@ -1,8 +1,6 @@
-#!/usr/bin/env python
-
-"""The setup script."""
-
 from setuptools import setup, find_packages
+
+version = '0.1.0.dev0'
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -10,7 +8,7 @@ with open('README.rst') as readme_file:
 with open('CHANGES.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=7.0', 'threedi-modelchecker', 'mercurial']
+requirements = ['Click>=7.0', 'mercurial']
 
 test_requirements = ['pytest>=3',  ]
 
@@ -46,6 +44,6 @@ setup(
         "test": test_requirements,
     },
     url='https://github.com/nens/threedi_model_migration',
-    version='0.1.0',
+    version=version,
     zip_safe=False,
 )

@@ -34,9 +34,9 @@ jobs:
         # with:
         #   lfs: true
             
-      - name: Install sqlite3 and spatialite
+      - name: Install sqlite3
         run: |
-          sudo apt-get install --yes --no-install-recommends sqlite3 libsqlite3-mod-spatialite
+          sudo apt-get install --yes --no-install-recommends sqlite3
       
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v2

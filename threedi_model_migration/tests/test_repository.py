@@ -10,11 +10,29 @@ def test_revisions(repository):
 
 def test_checkout_newest(repository):
     repository.checkout(repository.revisions[0].revision_hash)
-    with open(repository.path / "file.txt", "r") as f:
-        assert f.read() == "bar"
+    assert (repository.path / "db1.sqlite").exists()
+    assert (repository.path / "db2.sqlite").exists()
 
 
 def test_checkout_oldest(repository):
     repository.checkout(repository.revisions[1].revision_hash)
-    with open(repository.path / "file.txt", "r") as f:
-        assert f.read() == "foo"
+    assert (repository.path / "db1.sqlite").exists()
+    assert not (repository.path / "db2.sqlite").exists()
+
+
+def test_sqlites(repository):
+    sqlites = repository.revisions[0].sqlites
+    assert len(sqlites) == 2
+
+    assert str(sqlites[0].sqlite_path) == "db1.sqlite"
+    assert str(sqlites[1].sqlite_path) == "db2.sqlite"
+
+
+def test_settings(repository):
+    settings = repository.revisions[0].sqlites[1].settings
+    assert len(settings) == 2
+
+    assert settings[0].settings_id == 1
+    assert settings[0].settings_name == "default"
+    assert settings[1].settings_id == 2
+    assert settings[1].settings_name == "breach"
