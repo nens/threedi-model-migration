@@ -10,7 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_REMOTE = "https://hg.lizard.net/"
+DEFAULT_REMOTE = "https://hg.lizard.net"
 
 
 @dataclass
@@ -27,30 +27,33 @@ class RepositoryRevision:
 
 
 class Repository:
-    def __init__(self, base_path: Path, name: str, remote: Optional[str] = None):
+    def __init__(self, base_path: Path, name: str, remote: str = DEFAULT_REMOTE):
         self.base_path = base_path
         self.name = name
-        if remote is None:
-            self.remote = DEFAULT_REMOTE + name
-        else:
-            self.remote = remote
+        if remote.endswith("/"):
+            remote = remote[:-1]
+        self.remote = remote
         self._revisions: Optional[List[RepositoryRevision]] = None
 
     @property
     def path(self):
         return self.base_path / self.name
 
+    @property
+    def remote_full(self):
+        return self.remote + "/" + self.name
+
     def download(self):
         """Get the latest commits from the remote (calls hg clone / pull and lfpull)"""
         if self.remote is None:
             raise ValueError("Cannot download because remote is not set")
         if self.path.exists():
-            logger.info(f"Pulling from {self.remote}...")
-            hg.pull(self.path, self.remote)
+            logger.info(f"Pulling from {self.remote_full}...")
+            hg.pull(self.path, self.remote_full)
             logger.info("Done.")
         else:
-            logger.info(f"Cloning from {self.remote}...")
-            hg.clone(self.path, self.remote)
+            logger.info(f"Cloning from {self.remote_full}...")
+            hg.clone(self.path, self.remote_full)
             logger.info("Done.")
         logger.info("Pulling largefiles...")
         hg.pull_all_largefiles(self.path)
