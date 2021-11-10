@@ -103,13 +103,9 @@ def default_json_serializer(o):
     type=click.DateTime(formats=["%Y-%m-%d"]),
     help="Revisions older than this are filtered",
 )
-@click.option(
-    "--inspect/--no-inspect",
-    default=False,
-)
 @click.pass_context
-def ls(ctx, format, indent, dialect, inspect, last_update):
-    """Lists revisions in a repository"""
+def inspect(ctx, format, indent, dialect, last_update):
+    """Inspects revisions, sqlites, and global settings in a repository"""
     # convert last_update and localize
     repository = ctx.obj["repository"]
     stdout_text = click.get_text_stream("stdout")
@@ -118,48 +114,30 @@ def ls(ctx, format, indent, dialect, inspect, last_update):
         "revision_nr",
         "revision_hash",
         "last_update",
+        "sqlite_path",
+        "settings_id",
+        "settings_name",
     ]
-    if inspect:
-        fieldnames += ["sqlite_path", "settings_id", "settings_name"]
 
     if format == "csv":
         writer = csv.DictWriter(stdout_text, fieldnames=fieldnames, dialect=dialect)
         writer.writeheader()
 
     result = []
-    for revision in repository.revisions:
-        if last_update is not None:
-            truncated_revision_last_update = revision.last_update.replace(
-                hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-            )
-            if truncated_revision_last_update < last_update:
-                continue
-        if inspect:
-            combinations = [
-                {
-                    "revision_nr": revision.revision_nr,
-                    "revision_hash": revision.revision_hash,
-                    "last_update": revision.last_update,
-                    "sqlite_path": sqlite.sqlite_path,
-                    "settings_id": settings.settings_id,
-                    "settings_name": settings.settings_name,
-                }
-                for sqlite in revision.sqlites
-                for settings in sqlite.settings
-            ]
-        else:
-            combinations = [
-                {
-                    "revision_nr": revision.revision_nr,
-                    "revision_hash": revision.revision_hash,
-                    "last_update": revision.last_update,
-                }
-            ]
+    for revision, sqlite, settings in repository.inspect(last_update):
+        result.append(
+            {
+                "revision_nr": revision.revision_nr,
+                "revision_hash": revision.revision_hash,
+                "last_update": revision.last_update,
+                "sqlite_path": sqlite.sqlite_path,
+                "settings_id": settings.settings_id,
+                "settings_name": settings.settings_name,
+            }
+        )
+
         if format == "csv":
-            for combination in combinations:
-                writer.writerow({x: combination[x] for x in fieldnames})
-        else:
-            result += combinations
+            writer.writerow({x: result[-1][x] for x in fieldnames})
 
     if format == "json":
         json.dump(

@@ -36,3 +36,25 @@ def test_settings(repository):
     assert settings[0].settings_name == "default"
     assert settings[1].settings_id == 2
     assert settings[1].settings_name == "breach"
+
+
+def test_inspect(repository):
+    result = list(repository.inspect())
+
+    # newest to oldest
+    revision, sqlite, settings = result[0]
+    assert revision.revision_nr == 1
+    assert sqlite.sqlite_path.name == "db1.sqlite"
+    assert settings.settings_id == 1
+    revision, sqlite, settings = result[1]
+    assert revision.revision_nr == 1
+    assert sqlite.sqlite_path.name == "db2.sqlite"
+    assert settings.settings_id == 1
+    revision, sqlite, settings = result[2]
+    assert revision.revision_nr == 1
+    assert sqlite.sqlite_path.name == "db2.sqlite"
+    assert settings.settings_id == 2
+    revision, sqlite, settings = result[3]
+    assert revision.revision_nr == 0
+    assert sqlite.sqlite_path.name == "db1.sqlite"
+    assert settings.settings_id == 1

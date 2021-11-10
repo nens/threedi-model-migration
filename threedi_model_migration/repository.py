@@ -130,3 +130,23 @@ class Repository:
             raise ValueError("Please supply a revision hash, not a number")
         hg.update(self.path, revision_hash)
         logger.info(f"Updated working directory to revision {revision_hash}.")
+
+    def inspect(self, last_update: Optional[datetime] = None):
+        """Iterate over all unique (revision, sqlite, global_setting) combinations.
+
+        Optionally filter by last_update. If supplied, only revisions newer than that
+        date are considered.
+        """
+        for revision in self.revisions:
+            if last_update is not None:
+                truncated_revision_last_update = revision.last_update.replace(
+                    hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+                )
+                if truncated_revision_last_update < last_update:
+                    continue
+
+            for sqlite in revision.sqlites:
+                for settings in sqlite.settings:
+                    yield revision, sqlite, settings
+        # go back to tip
+        self.checkout("tip")
