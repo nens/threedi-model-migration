@@ -12,7 +12,6 @@ import sqlite3
 logger = logging.getLogger(__name__)
 
 DEFAULT_REMOTE = "https://hg.lizard.net"
-REPO_DIRS_TO_IGNORE = [".hglf", ".hg", "preprocessed"]
 
 
 @dataclass
@@ -68,9 +67,7 @@ class RepoRevision:
         """Return a list of sqlites in this revision"""
         self.repository.checkout(self.revision_hash)
         base = self.repository.path.resolve()
-        glob = set(base.glob("**/*.sqlite"))
-        for _dir in REPO_DIRS_TO_IGNORE:
-            glob -= set(base.glob(f"./{_dir}/**/*.sqlite"))
+        glob = base.glob("*.sqlite")
         return [
             RepoSqlite(revision=self, sqlite_path=path.relative_to(base))
             for path in sorted(glob)
