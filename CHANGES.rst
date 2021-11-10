@@ -5,4 +5,9 @@ History
 0.1.0 (2021-11-09)
 ------------------
 
-* First release on PyPI.
+* Set-up repository.
+
+* Created Repository and RepositoryRevisions models. Repositories can download,
+  list, and checkout.
+
+* Created command line interface.
