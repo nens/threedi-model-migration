@@ -2,8 +2,10 @@ from . import hg
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Iterator
 from typing import List
 from typing import Optional
+from typing import Tuple
 
 import logging
 import sqlite3
@@ -85,7 +87,6 @@ class Repository:
         if remote.endswith("/"):
             remote = remote[:-1]
         self.remote = remote
-        self._revisions: Optional[List[RepoRevision]] = None
 
     @property
     def path(self):
@@ -114,11 +115,7 @@ class Repository:
     @property
     def revisions(self) -> List["RepoRevision"]:
         """Return a list of revisions, ordered newest first (calls hg log)"""
-        if self._revisions is None:
-            self._revisions = [
-                RepoRevision(repository=self, **x) for x in hg.log(self.path)
-            ]
-        return self._revisions
+        return [RepoRevision(repository=self, **x) for x in hg.log(self.path)]
 
     def checkout(self, revision_hash: str):
         """Update the working directory to given revision hash (calls hg update)"""
@@ -131,7 +128,9 @@ class Repository:
         hg.update(self.path, revision_hash)
         logger.info(f"Updated working directory to revision {revision_hash}.")
 
-    def inspect(self, last_update: Optional[datetime] = None):
+    def inspect(
+        self, last_update: Optional[datetime] = None
+    ) -> Iterator[Tuple[RepoRevision, RepoSqlite, RepoSettings]]:
         """Iterate over all unique (revision, sqlite, global_setting) combinations.
 
         Optionally filter by last_update. If supplied, only revisions newer than that

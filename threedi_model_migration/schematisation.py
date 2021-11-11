@@ -1,0 +1,113 @@
+from .repository import RepoSettings
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Iterator
+from typing import List
+from typing import Tuple
+
+
+@dataclass
+class Schematisation:
+    name: str  # matches repository name
+    sqlite_name: str  # the newest of its revisions
+    settings_id: int
+    settings_name: str  # the newest of its revisions
+
+    @property
+    def concat_name(self):
+        return f"{self.name}-{self.sqlite_name}-{self.settings_name}"
+
+    def __repr__(self):
+        return f"Schematisation(name={self.name}, sqlite_name={self.sqlite_name}, settings_name={self.settings_name})"
+
+
+@dataclass
+class SchemaRevision:
+    schematisation: Schematisation
+    sqlite_path: Path  # relative to repository dir
+    settings_name: str
+
+    # copy from RepoRevision:
+    revision_nr: int
+    revision_hash: str
+    last_update: datetime
+    commit_msg: str
+    commit_user: str
+
+    def __repr__(self):
+        first_line = self.commit_msg.split("\n")[0]
+        return f"SchemaRevision(revision_hash={self.revision_hash[:8]}, commit_msg={first_line})"
+
+
+def _settings_unique_id(settings: RepoSettings):
+    return (str(settings.sqlite.sqlite_path), settings.settings_id)
+
+
+def repository_to_schematisations(
+    settings_iter=Iterator[RepoSettings],
+) -> List[Tuple[Schematisation, List[SchemaRevision]]]:
+    """Apply logic to convert a repository to several schematisations
+
+    Supplied RepoSettings should belong to only 1 repository.
+    """
+    # the result is a list of schematisations
+    result = []
+
+    # group per revision_nr and sort
+    repo_name = None
+    per_revision = defaultdict(list)
+    for settings in settings_iter:
+        if repo_name is None:
+            repo_name = settings.sqlite.revision.repository.name
+        else:
+            assert repo_name == settings.sqlite.revision.repository.name
+        per_revision[settings.sqlite.revision.revision_nr].append(settings)
+
+    # special case: empty list provided
+    if repo_name is None:
+        return result
+
+    # iterate over all revisions
+    revision_nrs = sorted(per_revision.keys(), reverse=True)
+
+    # keep track only of the unique (sqlite_path,settings_id) combinations of the
+    # previously processed (newer)
+    previous_rev = {}  # unique_id -> index into result
+    for n in revision_nrs:
+        # match settings-sqlite combinations with previous (newer) revision
+        unique_ids = [_settings_unique_id(x) for x in per_revision[n]]
+        targets = [previous_rev.get(x) for x in unique_ids]
+
+        # create schematisations if necessary
+        for i, settings in enumerate(per_revision[n]):
+            if targets[i] is None:
+                schematisation = Schematisation(
+                    name=repo_name,
+                    sqlite_name=str(settings.sqlite.sqlite_path),
+                    settings_id=settings.settings_id,
+                    settings_name=settings.settings_name,
+                )
+                result.append((schematisation, []))
+                targets[i] = len(result) - 1
+
+        # append the revision for each
+        for settings, target in zip(per_revision[n], targets):
+            result[target][1].append(
+                SchemaRevision(
+                    schematisation=result[target][0],
+                    sqlite_path=settings.sqlite.sqlite_path,
+                    settings_name=settings.settings_name,
+                    revision_nr=settings.sqlite.revision.revision_nr,
+                    revision_hash=settings.sqlite.revision.revision_hash,
+                    last_update=settings.sqlite.revision.last_update,
+                    commit_msg=settings.sqlite.revision.commit_msg,
+                    commit_user=settings.sqlite.revision.commit_user,
+                )
+            )
+
+        # update previous_rev
+        previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
+
+    return result
