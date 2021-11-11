@@ -81,15 +81,6 @@ revision_3 = RepoRevision(
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[1], [1]],
         ),
-        # Two revisions with two sqlites with the same settings ("sqlite renamed")
-        (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db2", revision_2)),
-            ],
-            ["testrepo-db1-a", "testrepo-db2-a"],
-            [[1], [2]],
-        ),
         # Two revisions with one sqlites with different settings ("settings renumbered")
         (
             [
@@ -139,6 +130,45 @@ revision_3 = RepoRevision(
             ],
             ["testrepo-db1-a", "testrepo-db1-b", "testrepo-db1-c"],
             [[3, 2, 1], [1], [3]],
+        ),
+        # Renaming an sqlite is allowed
+        (
+            [
+                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
+                RepoSettings(1, "a", RepoSqlite("db2", revision_2)),
+            ],
+            ["testrepo-db2-a"],
+            [[2, 1]],
+        ),
+        # Renaming an sqlite is allowed, but a settings id must remain constant
+        (
+            [
+                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
+                RepoSettings(2, "b", RepoSqlite("db2", revision_2)),
+            ],
+            ["testrepo-db1-a", "testrepo-db2-b"],
+            [[1], [2]],
+        ),
+        # Renaming an sqlite is allowed, and a setting can be added at the same time
+        (
+            [
+                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
+                RepoSettings(1, "a", RepoSqlite("db2", revision_2)),
+                RepoSettings(2, "b", RepoSqlite("db2", revision_2)),
+            ],
+            ["testrepo-db2-a", "testrepo-db2-b"],
+            [[2, 1], [2]],
+        ),
+        # Renaming an sqlite is allowed, another sqlite may be present
+        (
+            [
+                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
+                RepoSettings(1, "a", RepoSqlite("db1", revision_2)),
+                RepoSettings(1, "a", RepoSqlite("db2", revision_1)),
+                RepoSettings(1, "a", RepoSqlite("db3", revision_2)),
+            ],
+            ["testrepo-db1-a", "testrepo-db3-a"],
+            [[2, 1], [2, 1]],
         ),
     ],
 )
