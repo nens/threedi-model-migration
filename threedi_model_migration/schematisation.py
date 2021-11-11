@@ -78,7 +78,24 @@ def repository_to_schematisations(
     for n in revision_nrs:
         # match settings-sqlite combinations with previous (newer) revision
         unique_ids = [_settings_unique_id(x) for x in per_revision[n]]
-        targets = [previous_rev.get(x) for x in unique_ids]
+        targets = [previous_rev.pop(x, None) for x in unique_ids]
+        unmatched_ids = [x for (x, y) in zip(unique_ids, targets) if y is None]
+
+        # extra logic to fix incomplete matches:
+        if len(unmatched_ids) > 0:
+            # situation: 1 sqlite is renamed (still multiple settings allowed!)
+            n_unmatched_sqlites = len(set([x[0] for x in unmatched_ids]))
+            n_unmatched_sqlites_prev = len(set([x[0] for x in previous_rev.keys()]))
+            if n_unmatched_sqlites == 1 and n_unmatched_sqlites_prev == 1:
+                # rewrite 'previous_rev' keys to account for the rename
+                sqlite_name = unmatched_ids[0][0]
+                previous_rev = {
+                    (sqlite_name, k[1]): v for (k, v) in previous_rev.items()
+                }
+                # insert the new target ids
+                for i, unique_id in enumerate(unique_ids):
+                    if targets[i] is None:
+                        targets[i] = previous_rev.pop(unique_id, None)
 
         # create schematisations if necessary
         for i, settings in enumerate(per_revision[n]):

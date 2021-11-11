@@ -15,3 +15,5 @@ History
 - Created command line interface.
 
 - List sqlites in a revision and list settings entries in sqlites.
+
+- Allow renaming of sqlite (only 1 sqlite can be renamed at a time).
