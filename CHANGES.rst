@@ -2,7 +2,7 @@
 History
 =======
 
-0.1.0 (unreleased)
+0.1.0 (2021-11-11)
 ------------------
 
 - Set-up repository.
