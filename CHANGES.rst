@@ -10,6 +10,8 @@ History
 - Created Repository and RepositoryRevisions models. Repositories can download,
   list, and checkout.
 
+- Create Schematisation models and logic to convert a repository to schematisations.
+
 - Created command line interface.
 
 - List sqlites in a revision and list settings entries in sqlites.
