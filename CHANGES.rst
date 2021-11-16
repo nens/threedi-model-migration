@@ -9,6 +9,11 @@ History
 
 - Added load_metdata to load a database dump from the modeldatabank.
 
+- Shifted 'remote' from Repository init to download.
+
+- Added -m parameter (metadata_path) to cli, and --uuid to the download command. This
+  enables mapping repo slugs to uuids.
+
 
 0.1.0 (2021-11-11)
 ------------------

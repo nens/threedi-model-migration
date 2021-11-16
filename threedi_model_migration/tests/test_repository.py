@@ -3,9 +3,9 @@ def test_revisions(repository):
     assert len(revisions) == 2
 
     assert revisions[0].commit_msg == "My second commit"
-    assert revisions[0].revision_nr == 1
+    assert revisions[0].revision_nr == 2
     assert revisions[1].commit_msg == "My first commit"
-    assert revisions[1].revision_nr == 0
+    assert revisions[1].revision_nr == 1
 
 
 def test_checkout_newest(repository):
@@ -43,18 +43,18 @@ def test_inspect(repository):
 
     # newest to oldest
     revision, sqlite, settings = result[0]
-    assert revision.revision_nr == 1
+    assert revision.revision_nr == 2
     assert sqlite.sqlite_path.name == "db1.sqlite"
     assert settings.settings_id == 1
     revision, sqlite, settings = result[1]
-    assert revision.revision_nr == 1
+    assert revision.revision_nr == 2
     assert sqlite.sqlite_path.name == "db2.sqlite"
     assert settings.settings_id == 1
     revision, sqlite, settings = result[2]
-    assert revision.revision_nr == 1
+    assert revision.revision_nr == 2
     assert sqlite.sqlite_path.name == "db2.sqlite"
     assert settings.settings_id == 2
     revision, sqlite, settings = result[3]
-    assert revision.revision_nr == 0
+    assert revision.revision_nr == 1
     assert sqlite.sqlite_path.name == "db1.sqlite"
     assert settings.settings_id == 1

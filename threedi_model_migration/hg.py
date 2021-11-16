@@ -50,8 +50,8 @@ def update(repo_path, revision_hash):
     get_output(f"hg update -v {revision_hash}", cwd=repo_path)
 
 
-def pull_all_largefiles(repo_path):
-    get_output('hg lfpull --rev "all()"', cwd=repo_path)
+def pull_all_largefiles(repo_path, remote):
+    get_output(f'hg lfpull --rev "all()" {remote}', cwd=repo_path)
 
 
 def init(repo_path):

@@ -5,6 +5,7 @@ from .repository import RepoSettings
 from .repository import Repository
 from .repository import RepoSqlite
 from .schematisation import repository_to_schematisations
+from .metadata import load_metadata
 from dataclasses import asdict
 from datetime import datetime
 
@@ -41,11 +42,10 @@ INSPECT_CSV_FIELDNAMES = [
     help="The name of the repository (directory within path)",
 )
 @click.option(
-    "-r",
-    "--remote",
-    type=str,
-    default=DEFAULT_REMOTE,
-    help="Remote domain that contains the repositories to download",
+    "-m",
+    "--metadata_path",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An optional path to a database dump of the modeldatabank",
 )
 @click.option(
     "-v",
@@ -55,14 +55,15 @@ INSPECT_CSV_FIELDNAMES = [
     help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
 )
 @click.pass_context
-def main(ctx, base_path, name, remote, verbosity):
+def main(ctx, base_path, name, metadata_path, verbosity):
     """Console script for threedi_model_migration."""
     if not base_path:
         base_path = pathlib.Path.cwd()
 
     ctx.ensure_object(dict)
-    ctx.obj["repository"] = Repository(base_path, name, remote)
+    ctx.obj["repository"] = Repository(base_path, name)
     ctx.obj["inspection_path"] = base_path / "_inspection"
+    ctx.obj["metadata_path"] = metadata_path
 
     # setup logging
     LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
@@ -76,11 +77,36 @@ def main(ctx, base_path, name, remote, verbosity):
 
 
 @main.command()
+@click.option(
+    "-r",
+    "--remote",
+    type=str,
+    default=DEFAULT_REMOTE,
+    help="Remote domain that contains the repositories to download",
+)
+@click.option(
+    "-u/-nu",
+    "--uuid/--not-uuid",
+    type=bool,
+    default=False,
+    help="Whether to use UUIDs instead of repository slugs in the remote"
+)
 @click.pass_context
-def download(ctx):
+def download(ctx, remote, uuid):
     """Clones / pulls a repository"""
     repository = ctx.obj["repository"]
-    repository.download()
+    if uuid:
+        if not ctx.obj["metadata_path"]:
+            raise ValueError("Please supply metadata_path")
+        metadata = load_metadata(ctx.obj["metadata_path"])
+        remote_name = str(metadata[repository.slug].repo_uuid)
+    else:
+        remote_name = repository.slug
+
+    if remote.endswith("/"):
+        remote = remote[:-1]
+    
+    repository.download(remote + "/" + remote_name)
 
 
 def default_json_serializer(o):
