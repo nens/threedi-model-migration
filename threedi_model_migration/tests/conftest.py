@@ -1,8 +1,17 @@
+from pathlib import Path
 from threedi_model_migration import hg
 from threedi_model_migration.repository import Repository
 
 import pytest
 import sqlite3
+
+
+DATA_PATH = Path(__file__).parent / "data"
+
+
+@pytest.fixture(scope="session")
+def metadata_json_path():
+    return DATA_PATH / "metadata.json"
 
 
 @pytest.fixture(scope="session")
@@ -30,5 +39,5 @@ def repository(tmp_path_factory):
     hg.add(repo_path, "db2.sqlite")
     hg.commit(repo_path, "db2.sqlite", "My second commit")
     return Repository(
-        base_path=tmp_path, name="testrepo", remote="https://non.existing"
+        base_path=tmp_path, slug="testrepo", remote="https://non.existing"
     )

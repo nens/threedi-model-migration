@@ -81,20 +81,20 @@ class RepoRevision:
 
 
 class Repository:
-    def __init__(self, base_path: Path, name: str, remote: str = DEFAULT_REMOTE):
+    def __init__(self, base_path: Path, slug: str, remote: str = DEFAULT_REMOTE):
         self.base_path = base_path
-        self.name = name
+        self.slug = slug
         if remote.endswith("/"):
             remote = remote[:-1]
         self.remote = remote
 
     @property
     def path(self):
-        return self.base_path / self.name
+        return self.base_path / self.slug
 
     @property
     def remote_full(self):
-        return self.remote + "/" + self.name
+        return self.remote + "/" + self.slug
 
     def download(self):
         """Get the latest commits from the remote (calls hg clone / pull and lfpull)"""
@@ -124,7 +124,7 @@ class Repository:
         except ValueError:
             pass
         else:
-            raise ValueError("Please supply a revision hash, not a number")
+            revision_hash -= 1  # model databank does +1 on revision_nr display
         hg.update(self.path, revision_hash)
         logger.info(f"Updated working directory to revision {revision_hash}.")
 

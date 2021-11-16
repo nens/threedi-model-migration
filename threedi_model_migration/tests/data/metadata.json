@@ -1,0 +1,58 @@
+[
+    {
+        "model": "model_databank.modeltype",
+        "pk": 1,
+        "fields": {
+            "name": "3Di",
+            "slug": "3di"
+        }
+    },
+    {
+        "model": "model_databank.modeltype",
+        "pk": 3,
+        "fields": {
+            "name": "3Di v2",
+            "slug": "3di-v2"
+        }
+    },
+    {
+        "model": "model_databank.modelreference",
+        "pk": 9,
+        "fields": {
+            "owner": [
+                "piet"
+            ],
+            "organisation": [
+                "003d6b48413f4ed1b43aa030f54172ce"
+            ],
+            "type": 1,
+            "identifier": "Binnen- & Buitenpolder",
+            "slug": "binnen-buitenpolder",
+            "uuid": "87512cd2-6518-484f-846d-7c6c043845b1",
+            "description": "foo",
+            "created": "2014-04-30T15:30:13.994",
+            "last_repo_update": "2014-07-24T09:14:03",
+            "is_deleted": false
+        }
+    },
+    {
+        "model": "model_databank.modelreference",
+        "pk": 16,
+        "fields": {
+            "owner": [
+                "ftp"
+            ],
+            "organisation": [
+                "b2c578b7b2314d33835f1eb34fb08c4c"
+            ],
+            "type": 3,
+            "identifier": "Dijkpolder",
+            "slug": "dijkpolder",
+            "uuid": "30837f54-be8b-4781-add2-16e068fc2d0a",
+            "description": "",
+            "created": "2014-05-01T11:45:10.828",
+            "last_repo_update": "2014-07-24T09:16:01",
+            "is_deleted": false
+        }
+    }
+]

@@ -13,7 +13,7 @@ import pytest
 
 repository = Repository(
     base_path=Path("/tmp"),
-    name="testrepo",
+    slug="testrepo",
     remote="https://non.existing",
 )
 

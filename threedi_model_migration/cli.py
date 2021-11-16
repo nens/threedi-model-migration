@@ -132,9 +132,9 @@ def inspect(ctx, indent, last_update, quiet):
         result.append(record)
 
     inspection_path.mkdir(exist_ok=True)
-    with (inspection_path / f"{repository.name}.json").open("w") as f:
+    with (inspection_path / f"{repository.slug}.json").open("w") as f:
         json.dump(
-            {"repository": repository.name, "combinations": result},
+            {"repository": repository.slug, "combinations": result},
             f,
             indent=indent,
             default=default_json_serializer,
@@ -155,10 +155,10 @@ def plan(ctx, indent):
     repository = ctx.obj["repository"]
     inspection_path = ctx.obj["inspection_path"]
 
-    with (inspection_path / f"{repository.name}.json").open("r") as f:
+    with (inspection_path / f"{repository.slug}.json").open("r") as f:
         inspection = json.load(f)
 
-    assert inspection["repository"] == repository.name
+    assert inspection["repository"] == repository.slug
 
     settings = [
         RepoSettings(
@@ -189,9 +189,9 @@ def plan(ctx, indent):
             del revision["schematisation"]
         result.append(record)
 
-    with (inspection_path / f"{repository.name}.plan.json").open("w") as f:
+    with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
-            {"repository": repository.name, "schematisations": result},
+            {"repository": repository.slug, "schematisations": result},
             f,
             indent=indent,
             default=default_json_serializer,

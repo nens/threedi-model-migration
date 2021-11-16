@@ -5,7 +5,9 @@ History
 0.1.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Renamed repository.name to repository.slug.
+
+- Added load_metdata to load a database dump from the modeldatabank.
 
 
 0.1.0 (2021-11-11)
