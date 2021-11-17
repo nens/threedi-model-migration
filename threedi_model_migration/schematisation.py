@@ -10,17 +10,17 @@ from typing import Tuple
 
 @dataclass
 class Schematisation:
-    name: str  # matches repository name
+    slug: str  # matches repository slug
     sqlite_name: str  # the newest of its revisions
     settings_id: int
     settings_name: str  # the newest of its revisions
 
     @property
     def concat_name(self):
-        return f"{self.name}-{self.sqlite_name}-{self.settings_name}"
+        return f"{self.slug}-{self.sqlite_name}-{self.settings_name}"
 
     def __repr__(self):
-        return f"Schematisation(name={self.name}, sqlite_name={self.sqlite_name}, settings_name={self.settings_name})"
+        return f"Schematisation(slug={self.slug}, sqlite_name={self.sqlite_name}, settings_name={self.settings_name})"
 
 
 @dataclass
@@ -56,17 +56,17 @@ def repository_to_schematisations(
     result = []
 
     # group per revision_nr and sort
-    repo_name = None
+    repo_slug = None
     per_revision = defaultdict(list)
     for settings in settings_iter:
-        if repo_name is None:
-            repo_name = settings.sqlite.revision.repository.name
+        if repo_slug is None:
+            repo_slug = settings.sqlite.revision.repository.slug
         else:
-            assert repo_name == settings.sqlite.revision.repository.name
+            assert repo_slug == settings.sqlite.revision.repository.slug
         per_revision[settings.sqlite.revision.revision_nr].append(settings)
 
     # special case: empty list provided
-    if repo_name is None:
+    if repo_slug is None:
         return result
 
     # iterate over all revisions
@@ -101,7 +101,7 @@ def repository_to_schematisations(
         for i, settings in enumerate(per_revision[n]):
             if targets[i] is None:
                 schematisation = Schematisation(
-                    name=repo_name,
+                    slug=repo_slug,
                     sqlite_name=str(settings.sqlite.sqlite_path),
                     settings_id=settings.settings_id,
                     settings_name=settings.settings_name,

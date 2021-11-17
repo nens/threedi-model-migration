@@ -75,47 +75,49 @@ class RepoRevision:
             for path in sorted(glob)
         ]
 
+    @classmethod
+    def from_log(cls, revision_nr, **fields):
+        return cls(
+            revision_nr=revision_nr + 1,  # like in model databank
+            **fields
+        )
+
     def __repr__(self):
         first_line = self.commit_msg.split("\n")[0]
         return f"RepoRevision(revision_hash={self.revision_hash[:8]}, commit_msg={first_line})"
 
 
 class Repository:
-    def __init__(self, base_path: Path, name: str, remote: str = DEFAULT_REMOTE):
+    def __init__(self, base_path: Path, slug: str):
         self.base_path = base_path
-        self.name = name
-        if remote.endswith("/"):
-            remote = remote[:-1]
-        self.remote = remote
+        self.slug = slug
 
     @property
     def path(self):
-        return self.base_path / self.name
+        return self.base_path / self.slug
 
     @property
     def remote_full(self):
-        return self.remote + "/" + self.name
+        return self.remote + "/" + self.slug
 
-    def download(self):
+    def download(self, remote):
         """Get the latest commits from the remote (calls hg clone / pull and lfpull)"""
-        if self.remote is None:
-            raise ValueError("Cannot download because remote is not set")
         if self.path.exists():
-            logger.info(f"Pulling from {self.remote_full}...")
-            hg.pull(self.path, self.remote_full)
+            logger.info(f"Pulling from {remote}...")
+            hg.pull(self.path, remote)
             logger.info("Done.")
         else:
-            logger.info(f"Cloning from {self.remote_full}...")
-            hg.clone(self.path, self.remote_full)
+            logger.info(f"Cloning from {remote}...")
+            hg.clone(self.path, remote)
             logger.info("Done.")
         logger.info("Pulling largefiles...")
-        hg.pull_all_largefiles(self.path)
+        hg.pull_all_largefiles(self.path, remote)
         logger.info("Done.")
 
     @property
     def revisions(self) -> List["RepoRevision"]:
         """Return a list of revisions, ordered newest first (calls hg log)"""
-        return [RepoRevision(repository=self, **x) for x in hg.log(self.path)]
+        return [RepoRevision.from_log(repository=self, **x) for x in hg.log(self.path)]
 
     def checkout(self, revision_hash: str):
         """Update the working directory to given revision hash (calls hg update)"""
@@ -124,7 +126,7 @@ class Repository:
         except ValueError:
             pass
         else:
-            raise ValueError("Please supply a revision hash, not a number")
+            revision_hash -= 1  # model databank does +1 on revision_nr display
         hg.update(self.path, revision_hash)
         logger.info(f"Updated working directory to revision {revision_hash}.")
 

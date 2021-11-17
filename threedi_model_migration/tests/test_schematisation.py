@@ -13,8 +13,7 @@ import pytest
 
 repository = Repository(
     base_path=Path("/tmp"),
-    name="testrepo",
-    remote="https://non.existing",
+    slug="testrepo",
 )
 
 revision_1 = RepoRevision(
