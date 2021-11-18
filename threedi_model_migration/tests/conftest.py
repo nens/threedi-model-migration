@@ -39,3 +39,10 @@ def repository(tmp_path_factory):
     hg.add(repo_path, "db2.sqlite")
     hg.commit(repo_path, "db2.sqlite", "My second commit")
     return Repository(base_path=tmp_path, slug="testrepo")
+
+
+@pytest.fixture(scope="session")
+def repository_inspected(repository):
+    inspected = Repository(base_path=repository.base_path, slug=repository.slug)
+    list(inspected.inspect())
+    return inspected

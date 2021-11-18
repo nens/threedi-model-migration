@@ -11,170 +11,174 @@ from threedi_model_migration.schematisation import (
 import pytest
 
 
-repository = Repository(
-    base_path=Path("/tmp"),
-    slug="testrepo",
-)
-
-revision_1 = RepoRevision(
-    repository,
-    1,
-    "abc",
-    datetime(2019, 2, 2),
-    "My first commit",
-    "username",
-)
-
-revision_2 = RepoRevision(
-    repository,
-    2,
-    "cba",
-    datetime(2021, 8, 10),
-    "My second commit",
-    "username",
-)
-
-revision_3 = RepoRevision(
-    repository,
-    3,
-    "abcd",
-    datetime(2021, 11, 11),
-    "My third commit",
-    "username",
-)
+def gen_repo(*revision_sqlites):
+    revisions = [
+        RepoRevision(
+            i + 1,
+            f"hash{i}",
+            datetime(2019, 2, 2 + i),
+            f"My {i}nd commit",
+            "username",
+            sqlites=sqlites,
+        )
+        for i, sqlites in enumerate(revision_sqlites)
+    ]
+    return Repository(
+        base_path=Path("/tmp"),
+        slug="testrepo",
+        revisions=revisions,
+    )
 
 
 @pytest.mark.parametrize(
-    "settings,expected_names,expected_nrs",
+    "repository,expected_names,expected_nrs",
     [
         # One revision, one sqlite, one settings entry
         (
-            [RepoSettings(1, "a", RepoSqlite("db1", revision_1))],
+            gen_repo([RepoSqlite("db1", settings=[RepoSettings(1, "a")])]),
             ["testrepo-db1-a"],
             [[1]],
         ),
         # Two revisions with the same sqlite and settings
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_2)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+            ),
             ["testrepo-db1-a"],
             [[2, 1]],
         ),
         # One revision with two sqlites with the same settings
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db2", revision_1)),
-            ],
+            gen_repo(
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db2", settings=[RepoSettings(1, "a")]),
+                ],
+            ),
             ["testrepo-db1-a", "testrepo-db2-a"],
             [[1], [1]],
         ),
         # One revision with one sqlites with two settings
         (
-            [
-                RepoSettings(2, "b", RepoSqlite("db1", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-            ],
+            gen_repo(
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db1", settings=[RepoSettings(2, "b")]),
+                ],
+            ),
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[1], [1]],
         ),
         # Two revisions with one sqlites with different settings ("settings renumbered")
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-                RepoSettings(2, "b", RepoSqlite("db1", revision_2)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [RepoSqlite("db1", settings=[RepoSettings(2, "b")])],
+            ),
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[1], [2]],
         ),
         # Two revisions with the same sqlite and settings, one sqlite added
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db2", revision_2)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_2)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db2", settings=[RepoSettings(1, "a")]),
+                ],
+            ),
             ["testrepo-db1-a", "testrepo-db2-a"],
             [[2, 1], [2]],
         ),
         # Two revisions with the same sqlite and settings, one settings entry added
         (
-            [
-                RepoSettings(2, "b", RepoSqlite("db1", revision_2)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_2)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db1", settings=[RepoSettings(2, "b")]),
+                ],
+            ),
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[2, 1], [2]],
         ),
-        # Setting is renamed: it is tracked
+        # Setting is renamed: it is tracked (and the last revision will set the name)
         (
-            [
-                RepoSettings(1, "b", RepoSqlite("db1", revision_2)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [RepoSqlite("db1", settings=[RepoSettings(1, "b")])],
+            ),
             ["testrepo-db1-b"],
             [[2, 1]],
         ),
         # Settings entry skips a revision; it counts as a new one
         (
-            [
-                RepoSettings(2, "c", RepoSqlite("db1", revision_3)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_3)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_2)),
-                RepoSettings(2, "b", RepoSqlite("db1", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-            ],
+            gen_repo(
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db1", settings=[RepoSettings(2, "b")]),
+                ],
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db1", settings=[RepoSettings(2, "c")]),
+                ],
+            ),
             ["testrepo-db1-a", "testrepo-db1-b", "testrepo-db1-c"],
             [[3, 2, 1], [1], [3]],
         ),
         # Renaming an sqlite is allowed
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db2", revision_2)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [RepoSqlite("db2", settings=[RepoSettings(1, "a")])],
+            ),
             ["testrepo-db2-a"],
             [[2, 1]],
         ),
         # Renaming an sqlite is allowed, but a settings id must remain constant
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-                RepoSettings(2, "b", RepoSqlite("db2", revision_2)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [RepoSqlite("db2", settings=[RepoSettings(2, "b")])],
+            ),
             ["testrepo-db1-a", "testrepo-db2-b"],
             [[1], [2]],
         ),
         # Renaming an sqlite is allowed, and a setting can be added at the same time
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db2", revision_2)),
-                RepoSettings(2, "b", RepoSqlite("db2", revision_2)),
-            ],
+            gen_repo(
+                [RepoSqlite("db1", settings=[RepoSettings(1, "a")])],
+                [
+                    RepoSqlite("db2", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db2", settings=[RepoSettings(2, "b")]),
+                ],
+            ),
             ["testrepo-db2-a", "testrepo-db2-b"],
             [[2, 1], [2]],
         ),
         # Renaming an sqlite is allowed, another sqlite may be present
         (
-            [
-                RepoSettings(1, "a", RepoSqlite("db1", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db1", revision_2)),
-                RepoSettings(1, "a", RepoSqlite("db2", revision_1)),
-                RepoSettings(1, "a", RepoSqlite("db3", revision_2)),
-            ],
+            gen_repo(
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db2", settings=[RepoSettings(1, "a")]),
+                ],
+                [
+                    RepoSqlite("db1", settings=[RepoSettings(1, "a")]),
+                    RepoSqlite("db3", settings=[RepoSettings(1, "a")]),
+                ],
+            ),
             ["testrepo-db1-a", "testrepo-db3-a"],
             [[2, 1], [2, 1]],
         ),
     ],
 )
-def test_repo_to_schema(settings, expected_names, expected_nrs):
-    actual = repository_to_schematisations(settings)
+def test_repo_to_schema(repository, expected_names, expected_nrs):
+    actual = repository_to_schematisations(repository)
 
     # sort by schematisation name
-    actual = sorted(actual, key=lambda x: x[0].concat_name)
-    assert [x[0].concat_name for x in actual] == expected_names
-    assert [[rev.revision_nr for rev in x[1]] for x in actual] == expected_nrs
+    actual = sorted(actual, key=lambda x: x.concat_name)
+    assert [x.concat_name for x in actual] == expected_names
+    assert [[rev.revision_nr for rev in x.revisions] for x in actual] == expected_nrs

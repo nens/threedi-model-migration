@@ -1,11 +1,11 @@
 """Console script for threedi_model_migration."""
+from .metadata import load_metadata
 from .repository import DEFAULT_REMOTE
 from .repository import RepoRevision
 from .repository import RepoSettings
 from .repository import Repository
 from .repository import RepoSqlite
 from .schematisation import repository_to_schematisations
-from .metadata import load_metadata
 from dataclasses import asdict
 from datetime import datetime
 
@@ -89,7 +89,7 @@ def main(ctx, base_path, name, metadata_path, verbosity):
     "--uuid/--not-uuid",
     type=bool,
     default=False,
-    help="Whether to use UUIDs instead of repository slugs in the remote"
+    help="Whether to use UUIDs instead of repository slugs in the remote",
 )
 @click.pass_context
 def download(ctx, remote, uuid):
@@ -105,7 +105,7 @@ def download(ctx, remote, uuid):
 
     if remote.endswith("/"):
         remote = remote[:-1]
-    
+
     repository.download(remote + "/" + remote_name)
 
 
