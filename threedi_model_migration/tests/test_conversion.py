@@ -1,12 +1,10 @@
 from datetime import datetime
 from pathlib import Path
+from threedi_model_migration.conversion import repository_to_schematisations
 from threedi_model_migration.repository import RepoRevision
 from threedi_model_migration.repository import RepoSettings
 from threedi_model_migration.repository import Repository
 from threedi_model_migration.repository import RepoSqlite
-from threedi_model_migration.schematisation import (
-    repository_to_schematisations,
-)
 
 import pytest
 

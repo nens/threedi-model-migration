@@ -1,5 +1,4 @@
 from . import hg
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator
@@ -7,16 +6,19 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
+import dataclasses
 import logging
 import sqlite3
 
+
+__all__ = ["Repository", "RepoSettings", "RepoRevision", "RepoSqlite"]
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_REMOTE = "https://hg.lizard.net"
 
 
-@dataclass
+@dataclasses.dataclass
 class RepoSettings:
     settings_id: int
     settings_name: str
@@ -25,7 +27,7 @@ class RepoSettings:
         return f"RepoSettings(id={self.settings_id}, name={self.settings_name})"
 
 
-@dataclass
+@dataclasses.dataclass
 class RepoSqlite:
     sqlite_path: Path  # relative path within repository
     settings: Optional[List[RepoSettings]] = None
@@ -62,7 +64,7 @@ class RepoSqlite:
         return f"RepoSqlite({self.sqlite_path})"
 
 
-@dataclass
+@dataclasses.dataclass
 class RepoRevision:
     revision_nr: int
     revision_hash: str
@@ -95,7 +97,7 @@ class RepoRevision:
         return f"RepoRevision({self.revision_nr})"
 
 
-@dataclass
+@dataclasses.dataclass
 class Repository:
     base_path: Path
     slug: str
@@ -147,16 +149,16 @@ class Repository:
             self.revisions = revisions
         return self.revisions
 
-    def checkout(self, revision_hash: str):
+    def checkout(self, hash_or_nr: str):
         """Update the working directory to given revision hash (calls hg update)"""
         try:
-            int(revision_hash)
+            hash_or_nr = int(hash_or_nr)
         except ValueError:
             pass
         else:
-            revision_hash -= 1  # model databank does +1 on revision_nr display
-        hg.update(self.path, revision_hash)
-        logger.info(f"Updated working directory to revision {revision_hash}.")
+            hash_or_nr -= 1  # model databank does +1 on revision_nr display
+        hg.update(self.path, hash_or_nr)
+        logger.info(f"Updated working directory to revision {hash_or_nr}.")
 
     def inspect(
         self, last_update: Optional[datetime] = None
@@ -174,3 +176,15 @@ class Repository:
                     yield revision, sqlite, settings
         # go back to tip
         self.checkout("tip")
+
+    @classmethod
+    def from_dict(cls, dct):
+        class_fields = {f.name for f in dataclasses.fields(cls)}
+        kwargs = {}
+        for key, value in dct.items():
+            if key not in class_fields:
+                continue
+            if key == "revisions" and value is not None:
+                value = [RepoRevision.from_dict(subvalue) for subvalue in value]
+            kwargs[key] = value
+        return cls(**kwargs)

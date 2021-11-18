@@ -1,30 +1,18 @@
 """Console script for threedi_model_migration."""
+from .conversion import repository_to_schematisations
+from .json_utils import custom_json_object_hook
+from .json_utils import custom_json_serializer
 from .metadata import load_metadata
 from .repository import DEFAULT_REMOTE
-from .repository import RepoRevision
-from .repository import RepoSettings
 from .repository import Repository
-from .repository import RepoSqlite
-from .schematisation import repository_to_schematisations
-from dataclasses import asdict
-from datetime import datetime
 
 import click
 import csv
+import dataclasses
 import json
 import logging
 import pathlib
 import sys
-
-
-INSPECT_CSV_FIELDNAMES = [
-    "revision_nr",
-    "revision_hash",
-    "last_update",
-    "sqlite_path",
-    "settings_id",
-    "settings_name",
-]
 
 
 @click.group()
@@ -109,13 +97,6 @@ def download(ctx, remote, uuid):
     repository.download(remote + "/" + remote_name)
 
 
-def default_json_serializer(o):
-    if isinstance(o, datetime):
-        return o.isoformat()
-    elif isinstance(o, pathlib.Path):
-        return str(o)
-
-
 @main.command()
 @click.option(
     "-i",
@@ -142,28 +123,38 @@ def inspect(ctx, indent, last_update, quiet):
     repository = ctx.obj["repository"]
     inspection_path = ctx.obj["inspection_path"]
 
+    INSPECT_CSV_FIELDNAMES = [
+        "revision_nr",
+        "revision_hash",
+        "last_update",
+        "sqlite_path",
+        "settings_id",
+        "settings_name",
+    ]
+
     if not quiet:
         stdout = click.get_text_stream("stdout")
         writer = csv.DictWriter(stdout, fieldnames=INSPECT_CSV_FIELDNAMES)
         writer.writeheader()
 
-    result = []
     for revision, sqlite, settings in repository.inspect(last_update):
-        record = {**asdict(revision), **asdict(sqlite), **asdict(settings)}
-        record.pop("repository")
-        record.pop("revision")
-        record.pop("sqlite")
+        record = {
+            **dataclasses.asdict(revision),
+            **dataclasses.asdict(sqlite),
+            **dataclasses.asdict(settings),
+        }
+        record.pop("sqlites")
+        record.pop("settings")
         if not quiet:
             writer.writerow({x: record[x] for x in INSPECT_CSV_FIELDNAMES})
-        result.append(record)
 
     inspection_path.mkdir(exist_ok=True)
     with (inspection_path / f"{repository.slug}.json").open("w") as f:
         json.dump(
-            {"repository": repository.slug, "combinations": result},
+            repository,
             f,
             indent=indent,
-            default=default_json_serializer,
+            default=custom_json_serializer,
         )
 
 
@@ -178,49 +169,25 @@ def inspect(ctx, indent, last_update, quiet):
 @click.pass_context
 def plan(ctx, indent):
     """Plans schematisation migration for given inspect result"""
-    repository = ctx.obj["repository"]
+    repository_slug = ctx.obj["repository"].slug
     inspection_path = ctx.obj["inspection_path"]
 
-    with (inspection_path / f"{repository.slug}.json").open("r") as f:
-        inspection = json.load(f)
+    with (inspection_path / f"{repository_slug}.json").open("r") as f:
+        repository = json.load(f, object_hook=custom_json_object_hook)
 
-    assert inspection["repository"] == repository.slug
+    assert repository.slug == repository_slug
 
-    settings = [
-        RepoSettings(
-            settings_id=x["settings_id"],
-            settings_name=x["settings_name"],
-            sqlite=RepoSqlite(
-                sqlite_path=pathlib.Path(x["sqlite_path"]),
-                revision=RepoRevision(
-                    repository=repository,
-                    revision_nr=x["revision_nr"],
-                    revision_hash=x["revision_hash"],
-                    last_update=datetime.fromisoformat(x["last_update"]),
-                    commit_msg=x["commit_msg"],
-                    commit_user=x["commit_user"],
-                ),
-            ),
-        )
-        for x in inspection["combinations"]
-    ]
-
-    result = []
-    for schematisation, revisions in repository_to_schematisations(settings):
+    for schematisation in repository_to_schematisations(repository):
+        revisions = schematisation.revisions
         rev_rng = f"{revisions[-1].revision_nr}-{revisions[0].revision_nr}"
         print(f"{schematisation.concat_name}: {rev_rng}")
-        record = asdict(schematisation)
-        record["revisions"] = [asdict(revision) for revision in revisions]
-        for revision in record["revisions"]:
-            del revision["schematisation"]
-        result.append(record)
 
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
-            {"repository": repository.slug, "schematisations": result},
+            schematisation,
             f,
             indent=indent,
-            default=default_json_serializer,
+            default=custom_json_serializer,
         )
 
 
