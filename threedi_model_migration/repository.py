@@ -16,12 +16,71 @@ __all__ = ["Repository", "RepoSettings", "RepoRevision", "RepoSqlite"]
 logger = logging.getLogger(__name__)
 
 DEFAULT_REMOTE = "https://hg.lizard.net"
+SQL = """
+SELECT v2_global_settings.id,
+  v2_global_settings.name,
+  v2_global_settings.dem_file,
+  v2_global_settings.frict_coef_file,
+  v2_global_settings.interception_file,
+  v2_global_settings.initial_waterlevel_file,
+  v2_global_settings.initial_groundwater_level_file,
+  v2_interflow.porosity_file,
+  v2_interflow.hydraulic_conductivity_file,
+  v2_simple_infiltration.infiltration_rate_file,
+  v2_simple_infiltration.max_infiltration_capacity_file,
+  v2_groundwater.groundwater_impervious_layer_level_file,
+  v2_groundwater.phreatic_storage_capacity_file,
+  v2_groundwater.equilibrium_infiltration_rate_file,
+  v2_groundwater.initial_infiltration_rate_file,
+  v2_groundwater.infiltration_decay_period_file,
+  v2_groundwater.groundwater_hydro_connectivity_file,
+  v2_groundwater.leakage_file
+FROM v2_global_settings
+LEFT JOIN v2_interflow ON v2_interflow.id = v2_global_settings.interflow_settings_id
+LEFT JOIN v2_simple_infiltration ON v2_simple_infiltration.id = v2_global_settings.simple_infiltration_settings_id
+LEFT JOIN v2_groundwater ON v2_groundwater.id = v2_global_settings.groundwater_settings_id
+ORDER BY v2_global_settings.id
+"""
 
 
 @dataclasses.dataclass
 class RepoSettings:
     settings_id: int
     settings_name: str
+    # v2_global_settings
+    dem_file: Optional[Path] = None
+    frict_coef_file: Optional[Path] = None
+    interception_file: Optional[Path] = None
+    initial_waterlevel_file: Optional[Path] = None
+    initial_groundwater_level_file: Optional[Path] = None
+    # v2_interflow
+    porosity_file: Optional[Path] = None
+    hydraulic_conductivity_file: Optional[Path] = None
+    # v2_simple_infiltration
+    infiltration_rate_file: Optional[Path] = None
+    max_infiltration_capacity_file: Optional[Path] = None
+    # v2_groundwater
+    groundwater_impervious_layer_level_file: Optional[Path] = None
+    phreatic_storage_capacity_file: Optional[Path] = None
+    equilibrium_infiltration_rate_file: Optional[Path] = None
+    initial_infiltration_rate_file: Optional[Path] = None
+    infiltration_decay_period_file: Optional[Path] = None
+    groundwater_hydro_connectivity_file: Optional[Path] = None
+    leakage_file: Optional[Path] = None
+
+    @classmethod
+    def from_record(cls, record, repository: Optional["Repository"] = None):
+        raster_paths = []
+        for raster_path in record[2:]:
+            if not raster_path:
+                raster_paths.append(None)
+                continue
+            raster_path = Path(raster_path)
+            fullpath = repository.path / raster_path
+            if not fullpath.exists():
+                logger.warn(f"Referenced raster {raster_path} does not exist.")
+            raster_paths.append(raster_path)
+        return cls(record[0], record[1], *raster_paths)
 
     def __repr__(self):
         return f"RepoSettings(id={self.settings_id}, name={self.settings_name})"
@@ -46,9 +105,7 @@ class RepoSqlite:
             con = sqlite3.connect(full_path)
             try:
                 with con:
-                    cursor = con.execute(
-                        "SELECT id, name FROM v2_global_settings ORDER BY id"
-                    )
+                    cursor = con.execute(SQL)
                 records = cursor.fetchall()
             except sqlite3.OperationalError as e:
                 logger.warning(f"{self} OperationalError {e}")
@@ -56,7 +113,10 @@ class RepoSqlite:
             finally:
                 con.close()
 
-            self.settings = [RepoSettings(*record) for record in records]
+            self.settings = [
+                RepoSettings.from_record(record, repository=repository)
+                for record in records
+            ]
 
         return self.settings
 
@@ -72,6 +132,7 @@ class RepoRevision:
     commit_msg: str
     commit_user: str
     sqlites: Optional[List[RepoSqlite]] = None
+    changes: List[Path] = None
 
     def get_sqlites(
         self, repository: Optional["Repository"] = None

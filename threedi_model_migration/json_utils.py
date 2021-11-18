@@ -20,7 +20,9 @@ def custom_json_serializer(o):
     elif dataclasses.is_dataclass(o):
         result = OrderedDict(type=o.__class__.__name__)
         for field in dataclasses.fields(o):
-            result[field.name] = getattr(o, field.name)
+            value = getattr(o, field.name)
+            if value is not None:
+                result[field.name] = getattr(o, field.name)
         return result
 
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import unquote
 
 import logging
@@ -73,17 +74,18 @@ def convert_to_date(date: str) -> datetime:
     return datetime.fromisoformat(fixed_date)
 
 
-LOG_TEMPLATE = "{rev},{node},{desc|urlescape},{user|urlescape},{date|isodate}\n"
+LOG_TEMPLATE = "{rev},{node},{desc|urlescape},{user|urlescape},{date|isodate},{files % '{file|urlescape}|'}\n"
 
 
 def parse_log_entry(row):
-    rev, node, desc, user, date = row.split(",")
+    rev, node, desc, user, date, files = row.split(",")
     return {
         "revision_nr": int(rev),
         "revision_hash": node,
         "commit_msg": unquote(desc),
         "commit_user": unquote(user),
         "last_update": convert_to_date(date),
+        "changes": [Path(unquote(f.lstrip(".hglf/"))) for f in files.split("|")[:-1]],
     }
 
 
