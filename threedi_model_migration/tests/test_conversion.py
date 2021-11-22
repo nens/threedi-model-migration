@@ -177,7 +177,7 @@ def gen_repo(*revision_sqlites):
     ],
 )
 def test_repo_to_schema(repository, expected_names, expected_nrs):
-    actual = repository_to_schematisations(repository)
+    actual = repository_to_schematisations(repository)["schematisations"]
 
     # sort by schematisation name
     actual = sorted(actual, key=lambda x: x.concat_name)
