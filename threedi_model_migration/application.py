@@ -6,10 +6,9 @@ from .repository import Repository
 
 import dataclasses
 import json
-import shutil
 
 
-def download_inspect_plan_delete(
+def download_inspect_plan(
     base_path, inspection_path, metadata, slug, remote, uuid, indent, last_update, cache
 ):
     repository = Repository(base_path, slug)
@@ -59,7 +58,3 @@ def download_inspect_plan_delete(
             indent=indent,
             default=custom_json_serializer,
         )
-
-    # COPY FROM delete
-    if repository.path.exists():
-        shutil.rmtree(repository.path)

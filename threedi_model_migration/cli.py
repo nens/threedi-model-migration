@@ -1,5 +1,5 @@
 """Console script for threedi_model_migration."""
-from .application import download_inspect_plan_delete
+from .application import download_inspect_plan
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
@@ -297,7 +297,7 @@ def batch(ctx, remote, uuid, indent, last_update, cache, filters):
         if filters and not re.match(filters, slug):
             continue
         try:
-            download_inspect_plan_delete(
+            download_inspect_plan(
                 base_path,
                 inspection_path,
                 metadata,
@@ -310,6 +310,11 @@ def batch(ctx, remote, uuid, indent, last_update, cache, filters):
             )
         except Exception as e:
             logger.warning(f"Could not process {_metadata.slug}: {e}")
+        finally:
+            # Always cleanup FROM delete
+            repository = Repository(base_path, slug)
+            if repository.path.exists():
+                shutil.rmtree(repository.path)
 
 
 if __name__ == "__main__":
