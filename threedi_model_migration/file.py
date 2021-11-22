@@ -10,6 +10,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+SQLITE_COMPRESSION_RATIO = 7
+
 
 class RasterOptions(Enum):
     dem_file = "dem_file"
@@ -62,6 +64,7 @@ class File:
 
     def compute_md5(self, base_path: Path):
         self.md5, self.size = compute_md5(base_path / self.path)
+        self.size = int(self.size / SQLITE_COMPRESSION_RATIO)
 
     def __hash__(self):
         return int(self.md5, 16)

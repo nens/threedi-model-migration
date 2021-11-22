@@ -5,12 +5,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 from typing import Optional
+from typing import Set
+from typing import Union
 
 
 __all__ = ["Schematisation", "SchemaRevision"]
-
-
-SQLITE_COMPRESSION_RATIO = 7
 
 
 @dataclass
@@ -39,25 +38,20 @@ class Schematisation:
     sqlite_name: str  # the newest of its revisions
     settings_id: int
     settings_name: str  # the newest of its revisions
-    file_count: Optional[int] = None
-    total_size_mb: Optional[int] = None
     revisions: Optional[List[SchemaRevision]] = None
 
     @property
     def concat_name(self):
         return f"{self.slug}-{self.sqlite_name}-{self.settings_name}"
 
-    def summarize_files(self):
-        unique_sqlites = set()
-        unique_rasters = set()
+    def get_files(self) -> Set[Union[File, Raster]]:
+        result = set()
         for revision in self.revisions:
-            unique_sqlites.add(revision.sqlite)
-            unique_rasters |= set(revision.rasters)
+            result.add(revision.sqlite)
+            for raster in revision.rasters:
+                result.add(raster)
 
-        self.file_count = len(unique_sqlites) + len(unique_rasters)
-        size_sqlites = sum(x.size for x in unique_sqlites) / SQLITE_COMPRESSION_RATIO
-        size_rasters = sum(x.size for x in unique_rasters)
-        self.total_size_mb = int((size_sqlites + size_rasters) / (1024 ** 2))
+        return result
 
     def __repr__(self):
         return f"Schematisation({self.slug}, sqlite_name={self.sqlite_name}, settings_name={self.settings_name})"
