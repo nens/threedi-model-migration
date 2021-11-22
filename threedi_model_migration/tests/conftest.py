@@ -8,6 +8,50 @@ import sqlite3
 
 DATA_PATH = Path(__file__).parent / "data"
 
+GLOBAL_SETTINGS_SCHEMA = """
+v2_global_settings (
+    id int,
+    name varchar(255),
+    dem_file varchar(255),
+    frict_coef_file varchar(255),
+    interception_file varchar(255),
+    initial_waterlevel_file varchar(255),
+    initial_groundwater_level_file varchar(255),
+    interflow_settings_id int,
+    simple_infiltration_settings_id int,
+    groundwater_settings_id int
+)
+"""
+
+INTERFLOW_SCHEMA = """
+v2_interflow (
+    id int,
+    porosity_file varchar(255),
+    hydraulic_conductivity_file varchar(255)
+)
+"""
+
+SIMPLE_INFILTRATION_SCHEMA = """
+v2_simple_infiltration (
+    id int,
+    infiltration_rate_file varchar(255),
+    max_infiltration_capacity_file varchar(255)
+)
+"""
+
+GROUNDWATER_SCHEMA = """
+v2_groundwater (
+    id int,
+    groundwater_impervious_layer_level_file varchar(255),
+    phreatic_storage_capacity_file varchar(255),
+    equilibrium_infiltration_rate_file varchar(255),
+    initial_infiltration_rate_file varchar(255),
+    infiltration_decay_period_file varchar(255),
+    groundwater_hydro_connectivity_file varchar(255),
+    leakage_file varchar(255)
+)
+"""
+
 
 @pytest.fixture(scope="session")
 def metadata_json_path():
@@ -23,8 +67,13 @@ def repository(tmp_path_factory):
     # write a sqlite
     con = sqlite3.connect(repo_path / "db1.sqlite")
     with con:
-        con.execute("CREATE TABLE v2_global_settings (id int, name varchar(255))")
-        con.execute("INSERT INTO v2_global_settings VALUES (1, 'default')")
+        con.execute(f"CREATE TABLE {GLOBAL_SETTINGS_SCHEMA}")
+        con.execute(f"CREATE TABLE {INTERFLOW_SCHEMA}")
+        con.execute(f"CREATE TABLE {SIMPLE_INFILTRATION_SCHEMA}")
+        con.execute(f"CREATE TABLE {GROUNDWATER_SCHEMA}")
+        con.execute(
+            "INSERT INTO v2_global_settings (id, name, dem_file) VALUES (1, 'default', 'rasters/dem.tif')"
+        )
     con.close()
     hg.add(repo_path, "db1.sqlite")
     hg.commit(repo_path, "db1.sqlite", "My first commit")
@@ -32,9 +81,19 @@ def repository(tmp_path_factory):
     # add another sqlite
     con = sqlite3.connect(repo_path / "db2.sqlite")
     with con:
-        con.execute("CREATE TABLE v2_global_settings (id int, name varchar(255))")
-        con.execute("INSERT INTO v2_global_settings VALUES (1, 'default')")
-        con.execute("INSERT INTO v2_global_settings VALUES (2, 'breach')")
+        con.execute(f"CREATE TABLE {GLOBAL_SETTINGS_SCHEMA}")
+        con.execute(f"CREATE TABLE {INTERFLOW_SCHEMA}")
+        con.execute(f"CREATE TABLE {SIMPLE_INFILTRATION_SCHEMA}")
+        con.execute(f"CREATE TABLE {GROUNDWATER_SCHEMA}")
+        con.execute(
+            "INSERT INTO v2_global_settings (id, name, dem_file) VALUES (1, 'default', 'rasters/dem.tif')"
+        )
+        con.execute(
+            "INSERT INTO v2_global_settings (id, name, dem_file, groundwater_settings_id) VALUES (2, 'groundwater', 'rasters/dem.tif', 1)"
+        )
+        con.execute(
+            "INSERT INTO v2_groundwater (id, groundwater_impervious_layer_level_file) VALUES (1, 'rasters/x.tif')"
+        )
     con.close()
     hg.add(repo_path, "db2.sqlite")
     hg.commit(repo_path, "db2.sqlite", "My second commit")

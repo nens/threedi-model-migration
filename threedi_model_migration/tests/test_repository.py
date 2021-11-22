@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 def test_revisions(repository_inspected):
     revisions = repository_inspected.revisions
     assert len(revisions) == 2
@@ -34,8 +37,12 @@ def test_settings(repository_inspected):
 
     assert settings[0].settings_id == 1
     assert settings[0].settings_name == "default"
+    assert settings[0].dem_file == Path("rasters/dem.tif")
+    assert settings[0].groundwater_impervious_layer_level_file is None
     assert settings[1].settings_id == 2
-    assert settings[1].settings_name == "breach"
+    assert settings[1].settings_name == "groundwater"
+    assert settings[1].dem_file == Path("rasters/dem.tif")
+    assert settings[1].groundwater_impervious_layer_level_file == Path("rasters/x.tif")
 
 
 def test_inspect(repository_inspected):
