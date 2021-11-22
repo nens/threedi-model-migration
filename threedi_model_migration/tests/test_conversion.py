@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from threedi_model_migration.conversion import repository_to_schematisations
+from threedi_model_migration.file import File
 from threedi_model_migration.repository import RepoRevision
 from threedi_model_migration.repository import RepoSettings
 from threedi_model_migration.repository import Repository
@@ -10,6 +11,7 @@ import pytest
 
 
 def gen_repo(*revision_sqlites):
+    files = [File(path=f"db{i}") for i in range(1, 4)]
     revisions = [
         RepoRevision(
             i + 1,
@@ -18,6 +20,7 @@ def gen_repo(*revision_sqlites):
             f"My {i}nd commit",
             "username",
             sqlites=sqlites,
+            changes=files,
         )
         for i, sqlites in enumerate(revision_sqlites)
     ]

@@ -61,4 +61,7 @@ class File:
 
 @dataclasses.dataclass
 class Raster(File):
+    path: Path
+    size: Optional[int] = None  # in bytes
+    md5: Optional[str] = None
     raster_type: RasterOptions = None

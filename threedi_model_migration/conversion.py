@@ -1,4 +1,4 @@
-from .file import File
+from .file import Raster
 from .repository import RepoSettings
 from .repository import Repository
 from .repository import RepoSqlite
@@ -9,6 +9,11 @@ from typing import List
 
 def _unique_id(sqlite: RepoSqlite, settings: RepoSettings):
     return (str(sqlite.sqlite_path), settings.settings_id)
+
+
+def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
+    file = repository.get_file(revision_nr, raster.path)
+    return Raster(file.path, file.size, file.md5, raster_type=raster.raster_type)
 
 
 def repository_to_schematisations(repository: Repository) -> List[Schematisation]:
@@ -74,15 +79,17 @@ def repository_to_schematisations(repository: Repository) -> List[Schematisation
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
                     commit_user=revision.commit_user,
-                    sqlite=File(sqlite.sqlite_path),
-                    rasters=settings.rasters,
+                    sqlite=repository.get_file(
+                        revision.revision_nr, sqlite.sqlite_path
+                    ),
+                    rasters=[
+                        raster_lookup(repository, revision.revision_nr, x)
+                        for x in settings.rasters
+                    ],
                 )
             )
 
         # update previous_rev
         previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
-
-    # match the sqlite & rasters to the ones in the revision's changeset
-    pass
 
     return result

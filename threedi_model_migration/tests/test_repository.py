@@ -39,16 +39,16 @@ def test_settings(repository_inspected):
     assert settings[0].settings_id == 1
     assert settings[0].settings_name == "default"
     assert len(settings[0].rasters) == 1
-    assert settings[0].rasters[0].raster_type == RasterOptions.dem_raw_file
+    assert settings[0].rasters[0].raster_type == RasterOptions.dem_raw_file.value
     assert settings[0].rasters[0].path == Path("rasters/dem.tif")
     assert settings[1].settings_id == 2
     assert settings[1].settings_name == "groundwater"
     assert len(settings[1].rasters) == 2
-    assert settings[1].rasters[0].raster_type == RasterOptions.dem_raw_file
+    assert settings[1].rasters[0].raster_type == RasterOptions.dem_raw_file.value
     assert settings[1].rasters[0].path == Path("rasters/dem.tif")
     assert (
         settings[1].rasters[1].raster_type
-        == RasterOptions.groundwater_impervious_layer_level_file
+        == RasterOptions.groundwater_impervious_layer_level_file.value
     )
     assert settings[1].rasters[1].path == Path("rasters/x.tif")
 

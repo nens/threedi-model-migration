@@ -66,7 +66,7 @@ class RepoSettings:
             fullpath = repository.path / raster_path
             if not fullpath.exists():
                 logger.warn(f"Referenced raster {raster_path} does not exist.")
-            rasters.append(Raster(raster_type=raster_option, path=raster_path))
+            rasters.append(Raster(raster_type=raster_option.name, path=raster_path))
         return cls(record[0], record[1], rasters)
 
     def __repr__(self):
@@ -234,14 +234,15 @@ class Repository:
         # go back to tip
         self.checkout("tip")
 
-    @classmethod
-    def from_dict(cls, dct):
-        class_fields = {f.name for f in dataclasses.fields(cls)}
-        kwargs = {}
-        for key, value in dct.items():
-            if key not in class_fields:
+    def get_file(self, revision_nr: int, path: Path) -> File:
+        """Inspect revisions <revision_nr> and earlier to get a File"""
+        for revision in self.revisions:
+            if revision.revision_nr > revision_nr:
                 continue
-            if key == "revisions" and value is not None:
-                value = [RepoRevision.from_dict(subvalue) for subvalue in value]
-            kwargs[key] = value
-        return cls(**kwargs)
+            for file in revision.changes:
+                if str(file.path) == str(path):
+                    return file
+
+        raise FileNotFoundError(
+            f"File with path {path} was not found in revisions {revision_nr} and earlier."
+        )
