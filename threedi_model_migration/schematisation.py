@@ -1,3 +1,5 @@
+from .file import File
+from .file import Raster
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +21,10 @@ class SchemaRevision:
     last_update: datetime
     commit_msg: str
     commit_user: str
+
+    # files
+    sqlite: File
+    rasters: List[Raster]
 
     def __repr__(self):
         return f"SchemaRevision({self.revision_nr})"

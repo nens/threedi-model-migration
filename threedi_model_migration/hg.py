@@ -92,3 +92,11 @@ def parse_log_entry(row):
 def log(repo_path):
     output = get_output(f'hg log -T "{LOG_TEMPLATE}"', cwd=repo_path, log=False)
     return [parse_log_entry(row) for row in output.strip().split("\n")]
+
+
+def files(repo_path, revision_hash):
+    """List all files in the repo"""
+    output = get_output(
+        f'hg files --rev {revision_hash} -X ".hgignore"', cwd=repo_path, log=False
+    )
+    return [x.lstrip(".hglf/") for x in output.strip().split("\n")]

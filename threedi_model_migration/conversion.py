@@ -1,3 +1,4 @@
+from .file import File
 from .repository import RepoSettings
 from .repository import Repository
 from .repository import RepoSqlite
@@ -73,10 +74,15 @@ def repository_to_schematisations(repository: Repository) -> List[Schematisation
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
                     commit_user=revision.commit_user,
+                    sqlite=File(sqlite.sqlite_path),
+                    rasters=settings.rasters,
                 )
             )
 
         # update previous_rev
         previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
+
+    # match the sqlite & rasters to the ones in the revision's changeset
+    pass
 
     return result

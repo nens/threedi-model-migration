@@ -1,4 +1,7 @@
 from . import hg
+from .file import File
+from .file import Raster
+from .file import RasterOptions
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator
@@ -16,71 +19,55 @@ __all__ = ["Repository", "RepoSettings", "RepoRevision", "RepoSqlite"]
 logger = logging.getLogger(__name__)
 
 DEFAULT_REMOTE = "https://hg.lizard.net"
-SQL = """
-SELECT v2_global_settings.id,
-  v2_global_settings.name,
-  v2_global_settings.dem_file,
-  v2_global_settings.frict_coef_file,
-  v2_global_settings.interception_file,
-  v2_global_settings.initial_waterlevel_file,
-  v2_global_settings.initial_groundwater_level_file,
-  v2_interflow.porosity_file,
-  v2_interflow.hydraulic_conductivity_file,
-  v2_simple_infiltration.infiltration_rate_file,
-  v2_simple_infiltration.max_infiltration_capacity_file,
-  v2_groundwater.groundwater_impervious_layer_level_file,
-  v2_groundwater.phreatic_storage_capacity_file,
-  v2_groundwater.equilibrium_infiltration_rate_file,
-  v2_groundwater.initial_infiltration_rate_file,
-  v2_groundwater.infiltration_decay_period_file,
-  v2_groundwater.groundwater_hydro_connectivity_file,
-  v2_groundwater.leakage_file
+RASTER_SQL_MAP = {
+    RasterOptions.dem_raw_file: "v2_global_settings.dem_file",
+    RasterOptions.equilibrium_infiltration_rate_file: "v2_groundwater.equilibrium_infiltration_rate_file",
+    RasterOptions.frict_coef_file: "v2_global_settings.frict_coef_file",
+    RasterOptions.initial_groundwater_level_file: "v2_global_settings.initial_groundwater_level_file",
+    RasterOptions.initial_waterlevel_file: "v2_global_settings.initial_waterlevel_file",
+    RasterOptions.groundwater_hydro_connectivity_file: "v2_groundwater.groundwater_hydro_connectivity_file",
+    RasterOptions.groundwater_impervious_layer_level_file: "v2_groundwater.groundwater_impervious_layer_level_file",
+    RasterOptions.infiltration_decay_period_file: "v2_groundwater.infiltration_decay_period_file",
+    RasterOptions.initial_infiltration_rate_file: "v2_groundwater.initial_infiltration_rate_file",
+    RasterOptions.leakage_file: "v2_groundwater.leakage_file",
+    RasterOptions.phreatic_storage_capacity_file: "v2_groundwater.phreatic_storage_capacity_file",
+    RasterOptions.hydraulic_conductivity_file: "v2_interflow.hydraulic_conductivity_file",
+    RasterOptions.porosity_file: "v2_interflow.porosity_file",
+    RasterOptions.infiltration_rate_file: "v2_simple_infiltration.infiltration_rate_file",
+    RasterOptions.max_infiltration_capacity_file: "v2_simple_infiltration.max_infiltration_capacity_file",
+    RasterOptions.interception_file: "v2_global_settings.interception_file",
+}
+SQL = (
+    "SELECT v2_global_settings.id, v2_global_settings.name,"
+    + ", ".join(RASTER_SQL_MAP[name] for name in RasterOptions)
+    + """
 FROM v2_global_settings
 LEFT JOIN v2_interflow ON v2_interflow.id = v2_global_settings.interflow_settings_id
 LEFT JOIN v2_simple_infiltration ON v2_simple_infiltration.id = v2_global_settings.simple_infiltration_settings_id
 LEFT JOIN v2_groundwater ON v2_groundwater.id = v2_global_settings.groundwater_settings_id
 ORDER BY v2_global_settings.id
 """
+)
 
 
 @dataclasses.dataclass
 class RepoSettings:
     settings_id: int
     settings_name: str
-    # v2_global_settings
-    dem_file: Optional[Path] = None
-    frict_coef_file: Optional[Path] = None
-    interception_file: Optional[Path] = None
-    initial_waterlevel_file: Optional[Path] = None
-    initial_groundwater_level_file: Optional[Path] = None
-    # v2_interflow
-    porosity_file: Optional[Path] = None
-    hydraulic_conductivity_file: Optional[Path] = None
-    # v2_simple_infiltration
-    infiltration_rate_file: Optional[Path] = None
-    max_infiltration_capacity_file: Optional[Path] = None
-    # v2_groundwater
-    groundwater_impervious_layer_level_file: Optional[Path] = None
-    phreatic_storage_capacity_file: Optional[Path] = None
-    equilibrium_infiltration_rate_file: Optional[Path] = None
-    initial_infiltration_rate_file: Optional[Path] = None
-    infiltration_decay_period_file: Optional[Path] = None
-    groundwater_hydro_connectivity_file: Optional[Path] = None
-    leakage_file: Optional[Path] = None
+    rasters: List[Raster] = ()
 
     @classmethod
     def from_record(cls, record, repository: Optional["Repository"] = None):
-        raster_paths = []
-        for raster_path in record[2:]:
+        rasters = []
+        for raster_path, raster_option in zip(record[2:], RasterOptions):
             if not raster_path:
-                raster_paths.append(None)
                 continue
             raster_path = Path(raster_path)
             fullpath = repository.path / raster_path
             if not fullpath.exists():
                 logger.warn(f"Referenced raster {raster_path} does not exist.")
-            raster_paths.append(raster_path)
-        return cls(record[0], record[1], *raster_paths)
+            rasters.append(Raster(raster_type=raster_option, path=raster_path))
+        return cls(record[0], record[1], rasters)
 
     def __repr__(self):
         return f"RepoSettings(id={self.settings_id}, name={self.settings_name})"
@@ -131,8 +118,8 @@ class RepoRevision:
     last_update: datetime
     commit_msg: str
     commit_user: str
+    changes: List[File] = ()
     sqlites: Optional[List[RepoSqlite]] = None
-    changes: List[Path] = None
 
     def get_sqlites(
         self, repository: Optional["Repository"] = None
@@ -147,11 +134,15 @@ class RepoRevision:
             self.sqlites = [
                 RepoSqlite(sqlite_path=path.relative_to(base)) for path in sorted(glob)
             ]
+            # also compute hashes now we have the checkout
+            for file in self.changes:
+                file.compute_md5(base_path=base)
 
         return self.sqlites
 
     @classmethod
     def from_log(cls, revision_nr, **fields):
+        fields["changes"] = [File(x) for x in fields["changes"]]
         return cls(revision_nr=revision_nr + 1, **fields)  # like in model databank
 
     def __repr__(self):
@@ -203,10 +194,15 @@ class Repository:
                         hour=0, minute=0, second=0, microsecond=0, tzinfo=None
                     )
                     if truncated_revision_last_update < last_update:
-                        continue
-
+                        break
                 revisions.append(revision)
 
+            # patch the 'changes' if filtering on last_update so that all files are
+            # present in the repository
+            if last_update is not None and len(revisions) > 0:
+                revisions[-1].changes = [
+                    File(x) for x in hg.files(self.path, revisions[-1].revision_hash)
+                ]
             self.revisions = revisions
         return self.revisions
 

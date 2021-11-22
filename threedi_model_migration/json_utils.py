@@ -1,3 +1,4 @@
+from .file import File
 from .repository import RepoRevision
 from .repository import RepoSettings
 from .repository import Repository
@@ -35,6 +36,7 @@ DATACLASS_TYPE_LOOKUP = {
         RepoSettings,
         Schematisation,
         SchemaRevision,
+        File,
     )
 }
 
