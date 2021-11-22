@@ -1,4 +1,5 @@
 """Console script for threedi_model_migration."""
+from .application import download_inspect_plan_delete
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
@@ -12,8 +13,12 @@ import dataclasses
 import json
 import logging
 import pathlib
+import re
 import shutil
 import sys
+
+
+logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -50,6 +55,7 @@ def main(ctx, base_path, name, metadata_path, verbosity):
         base_path = pathlib.Path.cwd()
 
     ctx.ensure_object(dict)
+    ctx.obj["base_path"] = base_path
     ctx.obj["repository"] = Repository(base_path, name)
     ctx.obj["inspection_path"] = base_path / "_inspection"
     ctx.obj["metadata_path"] = metadata_path
@@ -229,6 +235,81 @@ def checkout(ctx, revision_hash):
     """Lists revisions in a repository"""
     repository = ctx.obj["repository"]
     repository.checkout(revision_hash)
+
+
+@main.command()
+@click.option(
+    "-r",
+    "--remote",
+    type=str,
+    default=DEFAULT_REMOTE,
+    help="Remote domain that contains the repositories to download",
+)
+@click.option(
+    "-u/-nu",
+    "--uuid/--not-uuid",
+    type=bool,
+    default=False,
+    help="Whether to use UUIDs instead of repository slugs in the remote",
+)
+@click.option(
+    "-i",
+    "--indent",
+    type=int,
+    default=4,
+    help="The indentation in case of JSON output",
+)
+@click.option(
+    "-l",
+    "--last_update",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Revisions older than this are filtered",
+)
+@click.option(
+    "-c/-nc",
+    "--cache/--no-cache",
+    type=bool,
+    default=True,
+    help="Whether to redo the inspect if the inspection already exists",
+)
+@click.option(
+    "-f",
+    "--filters",
+    type=str,
+    help="A regex to match repository slug against",
+)
+@click.pass_context
+def batch(ctx, remote, uuid, indent, last_update, cache, filters):
+    """Downloads, inspects, and plans all repositories from the metadata file"""
+    base_path = ctx.obj["base_path"]
+    inspection_path = ctx.obj["inspection_path"]
+    if not ctx.obj["metadata_path"]:
+        raise ValueError("Please supply metadata_path")
+    metadata = load_metadata(ctx.obj["metadata_path"])
+
+    # sort newest first
+    sorted_metadata = sorted(
+        metadata.values(), key=lambda x: x.last_update, reverse=True
+    )
+
+    for _metadata in sorted_metadata:
+        slug = _metadata.slug
+        if filters and not re.match(filters, slug):
+            continue
+        try:
+            download_inspect_plan_delete(
+                base_path,
+                inspection_path,
+                metadata,
+                _metadata.slug,
+                remote,
+                uuid,
+                indent,
+                last_update,
+                cache,
+            )
+        except Exception as e:
+            logger.warning(f"Could not process {_metadata.slug}: {e}")
 
 
 if __name__ == "__main__":

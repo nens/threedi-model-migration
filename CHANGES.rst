@@ -20,6 +20,8 @@ History
 
 - Add metadata to schematisation output.
 
+- Added 'batch' command.
+
 
 0.1.0 (2021-11-11)
 ------------------
