@@ -92,4 +92,7 @@ def repository_to_schematisations(repository: Repository) -> List[Schematisation
         # update previous_rev
         previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
 
+    for schematisation in result:
+        schematisation.summarize_files()
+
     return result
