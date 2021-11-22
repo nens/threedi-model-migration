@@ -8,6 +8,11 @@ from .schematisation import Schematisation
 from typing import Dict
 from typing import List
 
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 def _unique_id(sqlite: RepoSqlite, settings: RepoSettings):
     return (str(sqlite.sqlite_path), settings.settings_id)
@@ -77,6 +82,17 @@ def repository_to_schematisations(
 
         # append the revision for each
         for (sqlite, settings), target in zip(combinations, targets):
+            try:
+                _sqlite = repository.get_file(revision.revision_nr, sqlite.sqlite_path)
+                rasters = [
+                    raster_lookup(repository, revision.revision_nr, x)
+                    for x in settings.rasters
+                ]
+            except FileNotFoundError as e:
+                logger.warning(f"Skipping revision {revision.revision_nr} due to {e}")
+                previous_rev = {}
+                continue
+
             schemas[target].revisions.append(
                 SchemaRevision(
                     sqlite_path=sqlite.sqlite_path,
@@ -86,13 +102,8 @@ def repository_to_schematisations(
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
                     commit_user=revision.commit_user,
-                    sqlite=repository.get_file(
-                        revision.revision_nr, sqlite.sqlite_path
-                    ),
-                    rasters=[
-                        raster_lookup(repository, revision.revision_nr, x)
-                        for x in settings.rasters
-                    ],
+                    sqlite=_sqlite,
+                    rasters=rasters,
                 )
             )
 
