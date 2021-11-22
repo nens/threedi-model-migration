@@ -64,10 +64,8 @@ class File:
 
 @dataclasses.dataclass
 class Raster(File):
+    # Note: redefine fields so that __annotations__ is filled (used in json_utils.py)
     path: Path
     size: Optional[int] = None  # in bytes
     md5: Optional[str] = None
     raster_type: RasterOptions = None
-
-    def __hash__(self):
-        return int(self.md5, 16)

@@ -197,8 +197,8 @@ class Repository:
                         break
                 revisions.append(revision)
 
-            # patch the 'changes' if filtering on last_update so that all files are
-            # present in the repository
+            # patch the 'changes' of the oldest commit when filtering on last_update
+            # so that all files are present in the Repository
             if last_update is not None and len(revisions) > 0:
                 revisions[-1].changes = [
                     File(x) for x in hg.files(self.path, revisions[-1].revision_hash)

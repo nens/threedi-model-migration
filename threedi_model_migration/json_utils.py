@@ -22,9 +22,7 @@ def custom_json_serializer(o):
     elif dataclasses.is_dataclass(o):
         result = OrderedDict(type=o.__class__.__name__)
         for field in dataclasses.fields(o):
-            value = getattr(o, field.name)
-            if value is not None:
-                result[field.name] = getattr(o, field.name)
+            result[field.name] = getattr(o, field.name)
         return result
 
 
@@ -60,7 +58,4 @@ def custom_json_object_hook(dct):
             value = pathlib.Path(value)
         kwargs[name] = value
 
-    try:
-        return cls(**kwargs)
-    except TypeError as e:
-        raise TypeError(f"Could not deserialize object {dct}: {e}")
+    return cls(**kwargs)
