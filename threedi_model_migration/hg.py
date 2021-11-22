@@ -80,7 +80,8 @@ LOG_TEMPLATE = "{rev},{node},{desc|urlescape},{user|urlescape},{date|isodate},{f
 
 def filter_files(paths):
     for path in paths:
-        path = path.lstrip(".hglf/")
+        if path.startswith(".hglf/"):
+            path = path[6:]
         _, ext = os.path.splitext(path)
         if ext.lower() in (".tif", ".tiff", ".geotif", ".geotiff", ".sqlite"):
             yield Path(path)
