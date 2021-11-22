@@ -11,7 +11,7 @@ import pytest
 
 
 def gen_repo(*revision_sqlites):
-    files = [File(path=f"db{i}") for i in range(1, 4)]
+    files = [File(path=f"db{i}", md5=f"abc{i}", size=i * 1024) for i in range(1, 4)]
     revisions = [
         RepoRevision(
             i + 1,
@@ -20,7 +20,7 @@ def gen_repo(*revision_sqlites):
             f"My {i}nd commit",
             "username",
             sqlites=sqlites,
-            changes=files,
+            changes=files if i == 0 else [],
         )
         for i, sqlites in enumerate(revision_sqlites)
     ]

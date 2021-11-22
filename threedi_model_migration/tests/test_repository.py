@@ -1,6 +1,8 @@
 from pathlib import Path
 from threedi_model_migration.file import RasterOptions
 
+import pytest
+
 
 def test_revisions(repository_inspected):
     revisions = repository_inspected.revisions
@@ -8,8 +10,12 @@ def test_revisions(repository_inspected):
 
     assert revisions[0].commit_msg == "My second commit"
     assert revisions[0].revision_nr == 2
+    assert len(revisions[0].changes) == 1
+    assert revisions[0].changes[0].path.name == "db2.sqlite"
     assert revisions[1].commit_msg == "My first commit"
     assert revisions[1].revision_nr == 1
+    assert len(revisions[1].changes) == 1
+    assert revisions[1].changes[0].path.name == "db1.sqlite"
 
 
 def test_checkout_newest(repository):
@@ -73,3 +79,28 @@ def test_inspect(repository_inspected):
     assert revision.revision_nr == 1
     assert sqlite.sqlite_path.name == "db1.sqlite"
     assert settings.settings_id == 1
+
+
+@pytest.mark.parametrize(
+    "revision_nr,path",
+    [
+        (2, "db1.sqlite"),
+        (2, "db2.sqlite"),
+        (1, "db1.sqlite"),
+    ],
+)
+def test_get_file(revision_nr, path, repository_inspected):
+    file = repository_inspected.get_file(revision_nr, Path(path))
+    assert file.path.name == path
+
+
+@pytest.mark.parametrize(
+    "revision_nr,path",
+    [
+        (1, "db2.sqlite"),
+        (2, "db3.sqlite"),
+    ],
+)
+def test_get_file_not_found(revision_nr, path, repository_inspected):
+    with pytest.raises(FileNotFoundError):
+        repository_inspected.get_file(revision_nr, Path(path))
