@@ -12,6 +12,7 @@ import dataclasses
 import json
 import logging
 import pathlib
+import shutil
 import sys
 
 
@@ -95,6 +96,14 @@ def download(ctx, remote, uuid):
         remote = remote[:-1]
 
     repository.download(remote + "/" + remote_name)
+
+
+@main.command()
+@click.pass_context
+def delete(ctx):
+    """Clones / pulls a repository"""
+    repository = ctx.obj["repository"]
+    shutil.rmtree(repository.path)
 
 
 @main.command()

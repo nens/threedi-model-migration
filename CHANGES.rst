@@ -16,6 +16,8 @@ History
 
 - Extract rasters referenced in sqlite and files changed in commit (changeset).
 
+- Added 'delete' command.
+
 
 0.1.0 (2021-11-11)
 ------------------
