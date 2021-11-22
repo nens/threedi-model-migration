@@ -1,5 +1,6 @@
 from .file import File
 from .file import Raster
+from .metadata import SchemaMeta
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -38,6 +39,7 @@ class Schematisation:
     sqlite_name: str  # the newest of its revisions
     settings_id: int
     settings_name: str  # the newest of its revisions
+    metadata: Optional[SchemaMeta] = None
     revisions: Optional[List[SchemaRevision]] = None
 
     @property

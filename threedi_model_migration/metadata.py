@@ -67,7 +67,7 @@ class SchemaMeta:
         )
 
 
-def load_metadata(metadata_path: Path):
+def load_metadata(metadata_path: Path) -> Dict[str, SchemaMeta]:
     with metadata_path.open("r") as f:
         data = json.load(f)
 

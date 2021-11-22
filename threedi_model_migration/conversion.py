@@ -1,9 +1,11 @@
 from .file import Raster
+from .metadata import SchemaMeta
 from .repository import RepoSettings
 from .repository import Repository
 from .repository import RepoSqlite
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
+from typing import Dict
 from typing import List
 
 
@@ -16,11 +18,15 @@ def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
     return Raster(file.path, file.size, file.md5, raster_type=raster.raster_type)
 
 
-def repository_to_schematisations(repository: Repository) -> List[Schematisation]:
+def repository_to_schematisations(
+    repository: Repository, metadata: Dict[str, SchemaMeta] = None
+) -> List[Schematisation]:
     """Apply logic to convert a repository to several schematisations
 
     Supplied RepoSettings should belong to only 1 repository.
     """
+    metadata = metadata or {}
+
     # schemas is a list of schematisations
     schemas = []
 
@@ -64,6 +70,7 @@ def repository_to_schematisations(repository: Repository) -> List[Schematisation
                     settings_id=settings.settings_id,
                     settings_name=settings.settings_name,
                     revisions=[],
+                    metadata=metadata.get(repository.slug),
                 )
                 schemas.append(schematisation)
                 targets[i] = len(schemas) - 1
@@ -92,6 +99,7 @@ def repository_to_schematisations(repository: Repository) -> List[Schematisation
         # update previous_rev
         previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
 
+    # extract unique files
     files = set()
     for schematisation in schemas:
         files |= schematisation.get_files()

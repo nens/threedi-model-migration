@@ -1,5 +1,6 @@
 from .file import File
 from .file import Raster
+from .metadata import SchemaMeta
 from .repository import RepoRevision
 from .repository import RepoSettings
 from .repository import Repository
@@ -11,6 +12,7 @@ from collections import OrderedDict
 import dataclasses
 import datetime
 import pathlib
+import uuid
 
 
 def custom_json_serializer(o):
@@ -18,6 +20,8 @@ def custom_json_serializer(o):
     if isinstance(o, datetime.datetime):
         return o.isoformat()
     elif isinstance(o, pathlib.Path):
+        return str(o)
+    elif isinstance(o, uuid.UUID):
         return str(o)
     elif dataclasses.is_dataclass(o):
         result = OrderedDict(type=o.__class__.__name__)
@@ -35,6 +39,7 @@ DATACLASS_TYPE_LOOKUP = {
         RepoSettings,
         Schematisation,
         SchemaRevision,
+        SchemaMeta,
         File,
         Raster,
     )
@@ -56,6 +61,8 @@ def custom_json_object_hook(dct):
             value = datetime.datetime.fromisoformat(value)
         elif dtype is pathlib.Path:
             value = pathlib.Path(value)
+        elif dtype is uuid.UUID:
+            value = uuid.UUID(value)
         kwargs[name] = value
 
     return cls(**kwargs)

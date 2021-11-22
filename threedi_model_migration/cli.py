@@ -186,13 +186,17 @@ def plan(ctx, indent, quiet):
     """Plans schematisation migration for given inspect result"""
     repository_slug = ctx.obj["repository"].slug
     inspection_path = ctx.obj["inspection_path"]
+    if ctx.obj["metadata_path"]:
+        metadata = load_metadata(ctx.obj["metadata_path"])
+    else:
+        metadata = None
 
     with (inspection_path / f"{repository_slug}.json").open("r") as f:
         repository = json.load(f, object_hook=custom_json_object_hook)
 
     assert repository.slug == repository_slug
 
-    result = repository_to_schematisations(repository)
+    result = repository_to_schematisations(repository, metadata)
     if not quiet:
         print(f"Schematisation count: {result['count']}")
 
