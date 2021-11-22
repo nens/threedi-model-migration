@@ -2,6 +2,9 @@ from . import hg
 from .file import File
 from .file import Raster
 from .file import RasterOptions
+from .sql import RASTER_SQL_MAP
+from .sql import select
+from .sql import SETTINGS_SQL
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator
@@ -19,35 +22,6 @@ __all__ = ["Repository", "RepoSettings", "RepoRevision", "RepoSqlite"]
 logger = logging.getLogger(__name__)
 
 DEFAULT_REMOTE = "https://hg.lizard.net"
-RASTER_SQL_MAP = {
-    RasterOptions.dem_raw_file: "v2_global_settings.dem_file",
-    RasterOptions.equilibrium_infiltration_rate_file: "v2_groundwater.equilibrium_infiltration_rate_file",
-    RasterOptions.frict_coef_file: "v2_global_settings.frict_coef_file",
-    RasterOptions.initial_groundwater_level_file: "v2_global_settings.initial_groundwater_level_file",
-    RasterOptions.initial_waterlevel_file: "v2_global_settings.initial_waterlevel_file",
-    RasterOptions.groundwater_hydro_connectivity_file: "v2_groundwater.groundwater_hydro_connectivity_file",
-    RasterOptions.groundwater_impervious_layer_level_file: "v2_groundwater.groundwater_impervious_layer_level_file",
-    RasterOptions.infiltration_decay_period_file: "v2_groundwater.infiltration_decay_period_file",
-    RasterOptions.initial_infiltration_rate_file: "v2_groundwater.initial_infiltration_rate_file",
-    RasterOptions.leakage_file: "v2_groundwater.leakage_file",
-    RasterOptions.phreatic_storage_capacity_file: "v2_groundwater.phreatic_storage_capacity_file",
-    RasterOptions.hydraulic_conductivity_file: "v2_interflow.hydraulic_conductivity_file",
-    RasterOptions.porosity_file: "v2_interflow.porosity_file",
-    RasterOptions.infiltration_rate_file: "v2_simple_infiltration.infiltration_rate_file",
-    RasterOptions.max_infiltration_capacity_file: "v2_simple_infiltration.max_infiltration_capacity_file",
-    RasterOptions.interception_file: "v2_global_settings.interception_file",
-}
-SQL = (
-    "SELECT v2_global_settings.id, v2_global_settings.name,"
-    + ", ".join(RASTER_SQL_MAP[name] for name in RasterOptions)
-    + """
-FROM v2_global_settings
-LEFT JOIN v2_interflow ON v2_interflow.id = v2_global_settings.interflow_settings_id
-LEFT JOIN v2_simple_infiltration ON v2_simple_infiltration.id = v2_global_settings.simple_infiltration_settings_id
-LEFT JOIN v2_groundwater ON v2_groundwater.id = v2_global_settings.groundwater_settings_id
-ORDER BY v2_global_settings.id
-"""
-)
 
 
 @dataclasses.dataclass
@@ -89,16 +63,26 @@ class RepoSqlite:
             repository.checkout(revision.revision_hash)
             full_path = repository.path / self.sqlite_path
 
-            con = sqlite3.connect(full_path)
             try:
-                with con:
-                    cursor = con.execute(SQL)
-                records = cursor.fetchall()
+                records = select(full_path, SETTINGS_SQL)
             except sqlite3.OperationalError as e:
                 logger.warning(f"{self} OperationalError {e}")
+                records = []
+
+            if len(records) == 0:
                 return []
-            finally:
-                con.close()
+
+            # Pragmatic fix: in earlier sqlite schemas, some tables / columns
+            # may not exist. Do each query separately and wrap in try..except.
+            records = [list(record) for record in records]
+            for option in RasterOptions:
+                try:
+                    paths = select(full_path, RASTER_SQL_MAP[option])
+                except sqlite3.OperationalError:
+                    paths = [(None,)] * len(records)
+
+                for record, path in zip(records, paths):
+                    record.append(path[0])
 
             self.settings = [
                 RepoSettings.from_record(record, repository=repository)

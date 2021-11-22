@@ -5,11 +5,15 @@ from typing import Optional
 
 import dataclasses
 import hashlib
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class RasterOptions(Enum):
-    # dem_file = "dem_file"
-    dem_raw_file = "dem_raw_file"
+    dem_file = "dem_file"
+    # dem_raw_file = "dem_raw_file"
     equilibrium_infiltration_rate_file = "equilibrium_infiltration_rate_file"
     frict_coef_file = "frict_coef_file"
     initial_groundwater_level_file = "initial_groundwater_level_file"
@@ -39,6 +43,7 @@ def _iter_chunks(fileobj: BinaryIO, chunk_size: int = 16777216):
 
 def compute_md5(path: Path, chunk_size: int = 16777216):
     """Returns md5 and file size"""
+    logger.debug(f"Computing hash of file {path}...")
     with path.open("rb") as fileobj:
         hasher = hashlib.md5()
         for chunk in _iter_chunks(fileobj, chunk_size=chunk_size):

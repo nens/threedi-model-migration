@@ -70,7 +70,8 @@ def repository(tmp_path_factory):
         con.execute(f"CREATE TABLE {GLOBAL_SETTINGS_SCHEMA}")
         con.execute(f"CREATE TABLE {INTERFLOW_SCHEMA}")
         con.execute(f"CREATE TABLE {SIMPLE_INFILTRATION_SCHEMA}")
-        con.execute(f"CREATE TABLE {GROUNDWATER_SCHEMA}")
+        # This asserts that inspect() passes without a groundwater table:
+        # con.execute(f"CREATE TABLE {GROUNDWATER_SCHEMA}")
         con.execute(
             "INSERT INTO v2_global_settings (id, name, dem_file) VALUES (1, 'default', 'rasters/dem.tif')"
         )
