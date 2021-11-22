@@ -180,7 +180,9 @@ def plan(ctx, indent):
     for schematisation in repository_to_schematisations(repository):
         revisions = schematisation.revisions
         rev_rng = f"{revisions[-1].revision_nr}-{revisions[0].revision_nr}"
-        print(f"{schematisation.concat_name}: {rev_rng}")
+        print(
+            f"{schematisation.concat_name}: {rev_rng}, {schematisation.total_size_mb} MB"
+        )
 
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
