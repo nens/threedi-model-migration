@@ -3,9 +3,11 @@ from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
 from .repository import Repository
+from pathlib import Path
 
 import dataclasses
 import json
+import shutil
 
 
 def download_inspect_plan(
@@ -58,3 +60,9 @@ def download_inspect_plan(
             indent=indent,
             default=custom_json_serializer,
         )
+
+
+def clear_largefiles_cache():
+    cachedir = Path.home() / ".cache/largefiles"
+    if cachedir.exists():
+        shutil.rmtree(cachedir)

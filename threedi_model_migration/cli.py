@@ -1,4 +1,5 @@
 """Console script for threedi_model_migration."""
+from .application import clear_largefiles_cache
 from .application import download_inspect_plan
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
@@ -311,10 +312,11 @@ def batch(ctx, remote, uuid, indent, last_update, cache, filters):
         except Exception as e:
             logger.warning(f"Could not process {_metadata.slug}: {e}")
         finally:
-            # Always cleanup FROM delete
+            # Always cleanup
             repository = Repository(base_path, slug)
             if repository.path.exists():
                 shutil.rmtree(repository.path)
+            clear_largefiles_cache()
 
 
 if __name__ == "__main__":
