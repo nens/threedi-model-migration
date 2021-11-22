@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from threedi_model_migration.conversion import repository_to_schematisations
+from threedi_model_migration.file import File
 from threedi_model_migration.repository import RepoRevision
 from threedi_model_migration.repository import RepoSettings
 from threedi_model_migration.repository import Repository
@@ -10,6 +11,7 @@ import pytest
 
 
 def gen_repo(*revision_sqlites):
+    files = [File(path=f"db{i}", md5=f"abc{i}", size=i * 1024) for i in range(1, 4)]
     revisions = [
         RepoRevision(
             i + 1,
@@ -18,6 +20,7 @@ def gen_repo(*revision_sqlites):
             f"My {i}nd commit",
             "username",
             sqlites=sqlites,
+            changes=files if i == 0 else [],
         )
         for i, sqlites in enumerate(revision_sqlites)
     ]
@@ -174,7 +177,7 @@ def gen_repo(*revision_sqlites):
     ],
 )
 def test_repo_to_schema(repository, expected_names, expected_nrs):
-    actual = repository_to_schematisations(repository)
+    actual = repository_to_schematisations(repository)["schematisations"]
 
     # sort by schematisation name
     actual = sorted(actual, key=lambda x: x.concat_name)

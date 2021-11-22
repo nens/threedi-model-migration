@@ -166,8 +166,14 @@ def inspect(ctx, indent, last_update, quiet):
     default=4,
     help="The indentation in case of JSON output",
 )
+@click.option(
+    "-q/-nq",
+    "--quiet/--not-quiet",
+    type=bool,
+    default=False,
+)
 @click.pass_context
-def plan(ctx, indent):
+def plan(ctx, indent, quiet):
     """Plans schematisation migration for given inspect result"""
     repository_slug = ctx.obj["repository"].slug
     inspection_path = ctx.obj["inspection_path"]
@@ -177,14 +183,22 @@ def plan(ctx, indent):
 
     assert repository.slug == repository_slug
 
-    for schematisation in repository_to_schematisations(repository):
-        revisions = schematisation.revisions
-        rev_rng = f"{revisions[-1].revision_nr}-{revisions[0].revision_nr}"
-        print(f"{schematisation.concat_name}: {rev_rng}")
+    result = repository_to_schematisations(repository)
+    if not quiet:
+        print(f"Schematisation count: {result['count']}")
+
+        for schematisation in result["schematisations"]:
+            revisions = schematisation.revisions
+            rev_rng = f"{revisions[-1].revision_nr}-{revisions[0].revision_nr}"
+            print(f"{schematisation.concat_name}: {rev_rng}")
+
+        print(
+            f"File count: {result['file_count']}, Estimated size: {result['file_size_mb']} MB"
+        )
 
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
-            schematisation,
+            result,
             f,
             indent=indent,
             default=custom_json_serializer,

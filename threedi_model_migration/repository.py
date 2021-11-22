@@ -1,4 +1,10 @@
 from . import hg
+from .file import File
+from .file import Raster
+from .file import RasterOptions
+from .sql import RASTER_SQL_MAP
+from .sql import select
+from .sql import SETTINGS_SQL
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator
@@ -22,6 +28,20 @@ DEFAULT_REMOTE = "https://hg.lizard.net"
 class RepoSettings:
     settings_id: int
     settings_name: str
+    rasters: List[Raster] = ()
+
+    @classmethod
+    def from_record(cls, record, repository: Optional["Repository"] = None):
+        rasters = []
+        for raster_path, raster_option in zip(record[2:], RasterOptions):
+            if not raster_path:
+                continue
+            raster_path = Path(raster_path)
+            fullpath = repository.path / raster_path
+            if not fullpath.exists():
+                logger.warn(f"Referenced raster {raster_path} does not exist.")
+            rasters.append(Raster(raster_type=raster_option.name, path=raster_path))
+        return cls(record[0], record[1], rasters)
 
     def __repr__(self):
         return f"RepoSettings(id={self.settings_id}, name={self.settings_name})"
@@ -43,20 +63,31 @@ class RepoSqlite:
             repository.checkout(revision.revision_hash)
             full_path = repository.path / self.sqlite_path
 
-            con = sqlite3.connect(full_path)
             try:
-                with con:
-                    cursor = con.execute(
-                        "SELECT id, name FROM v2_global_settings ORDER BY id"
-                    )
-                records = cursor.fetchall()
+                records = select(full_path, SETTINGS_SQL)
             except sqlite3.OperationalError as e:
                 logger.warning(f"{self} OperationalError {e}")
-                return []
-            finally:
-                con.close()
+                records = []
 
-            self.settings = [RepoSettings(*record) for record in records]
+            if len(records) == 0:
+                return []
+
+            # Pragmatic fix: in earlier sqlite schemas, some tables / columns
+            # may not exist. Do each query separately and wrap in try..except.
+            records = [list(record) for record in records]
+            for option in RasterOptions:
+                try:
+                    paths = select(full_path, RASTER_SQL_MAP[option])
+                except sqlite3.OperationalError:
+                    paths = [(None,)] * len(records)
+
+                for record, path in zip(records, paths):
+                    record.append(path[0])
+
+            self.settings = [
+                RepoSettings.from_record(record, repository=repository)
+                for record in records
+            ]
 
         return self.settings
 
@@ -71,6 +102,7 @@ class RepoRevision:
     last_update: datetime
     commit_msg: str
     commit_user: str
+    changes: List[File] = ()
     sqlites: Optional[List[RepoSqlite]] = None
 
     def get_sqlites(
@@ -86,11 +118,15 @@ class RepoRevision:
             self.sqlites = [
                 RepoSqlite(sqlite_path=path.relative_to(base)) for path in sorted(glob)
             ]
+            # also compute hashes now we have the checkout
+            for file in self.changes:
+                file.compute_md5(base_path=base)
 
         return self.sqlites
 
     @classmethod
     def from_log(cls, revision_nr, **fields):
+        fields["changes"] = [File(x) for x in fields["changes"]]
         return cls(revision_nr=revision_nr + 1, **fields)  # like in model databank
 
     def __repr__(self):
@@ -142,10 +178,15 @@ class Repository:
                         hour=0, minute=0, second=0, microsecond=0, tzinfo=None
                     )
                     if truncated_revision_last_update < last_update:
-                        continue
-
+                        break
                 revisions.append(revision)
 
+            # patch the 'changes' of the oldest commit when filtering on last_update
+            # so that all files are present in the Repository
+            if last_update is not None and len(revisions) > 0:
+                revisions[-1].changes = [
+                    File(x) for x in hg.files(self.path, revisions[-1].revision_hash)
+                ]
             self.revisions = revisions
         return self.revisions
 
@@ -177,14 +218,15 @@ class Repository:
         # go back to tip
         self.checkout("tip")
 
-    @classmethod
-    def from_dict(cls, dct):
-        class_fields = {f.name for f in dataclasses.fields(cls)}
-        kwargs = {}
-        for key, value in dct.items():
-            if key not in class_fields:
+    def get_file(self, revision_nr: int, path: Path) -> File:
+        """Inspect revisions <revision_nr> and earlier to get a File"""
+        for revision in self.revisions:
+            if revision.revision_nr > revision_nr:
                 continue
-            if key == "revisions" and value is not None:
-                value = [RepoRevision.from_dict(subvalue) for subvalue in value]
-            kwargs[key] = value
-        return cls(**kwargs)
+            for file in revision.changes:
+                if str(file.path) == str(path):
+                    return file
+
+        raise FileNotFoundError(
+            f"File with path {path} was not found in revisions {revision_nr} and earlier."
+        )

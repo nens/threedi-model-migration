@@ -1,3 +1,5 @@
+from .file import File
+from .file import Raster
 from .repository import RepoRevision
 from .repository import RepoSettings
 from .repository import Repository
@@ -33,6 +35,8 @@ DATACLASS_TYPE_LOOKUP = {
         RepoSettings,
         Schematisation,
         SchemaRevision,
+        File,
+        Raster,
     )
 }
 
@@ -53,4 +57,5 @@ def custom_json_object_hook(dct):
         elif dtype is pathlib.Path:
             value = pathlib.Path(value)
         kwargs[name] = value
+
     return cls(**kwargs)

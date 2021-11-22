@@ -1,3 +1,4 @@
+from .file import Raster
 from .repository import RepoSettings
 from .repository import Repository
 from .repository import RepoSqlite
@@ -10,17 +11,22 @@ def _unique_id(sqlite: RepoSqlite, settings: RepoSettings):
     return (str(sqlite.sqlite_path), settings.settings_id)
 
 
+def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
+    file = repository.get_file(revision_nr, raster.path)
+    return Raster(file.path, file.size, file.md5, raster_type=raster.raster_type)
+
+
 def repository_to_schematisations(repository: Repository) -> List[Schematisation]:
     """Apply logic to convert a repository to several schematisations
 
     Supplied RepoSettings should belong to only 1 repository.
     """
-    # the result is a list of schematisations
-    result = []
+    # schemas is a list of schematisations
+    schemas = []
 
     # keep track only of the unique (sqlite_path,settings_id) combinations of the
     # previously processed (newer)
-    previous_rev = {}  # unique_id -> index into result
+    previous_rev = {}  # unique_id -> index into schemas
     for revision in sorted(repository.revisions, key=lambda x: -x.revision_nr):
         combinations = [
             (sqlite, settings)
@@ -59,12 +65,12 @@ def repository_to_schematisations(repository: Repository) -> List[Schematisation
                     settings_name=settings.settings_name,
                     revisions=[],
                 )
-                result.append(schematisation)
-                targets[i] = len(result) - 1
+                schemas.append(schematisation)
+                targets[i] = len(schemas) - 1
 
         # append the revision for each
         for (sqlite, settings), target in zip(combinations, targets):
-            result[target].revisions.append(
+            schemas[target].revisions.append(
                 SchemaRevision(
                     sqlite_path=sqlite.sqlite_path,
                     settings_name=settings.settings_name,
@@ -73,10 +79,27 @@ def repository_to_schematisations(repository: Repository) -> List[Schematisation
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
                     commit_user=revision.commit_user,
+                    sqlite=repository.get_file(
+                        revision.revision_nr, sqlite.sqlite_path
+                    ),
+                    rasters=[
+                        raster_lookup(repository, revision.revision_nr, x)
+                        for x in settings.rasters
+                    ],
                 )
             )
 
         # update previous_rev
         previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
 
-    return result
+    files = set()
+    for schematisation in schemas:
+        files |= schematisation.get_files()
+
+    return {
+        "count": len(schemas),
+        "file_count": len(files),
+        "file_size_mb": int(sum(x.size for x in files) / (1024 ** 2)),
+        "repository_slug": repository.slug,
+        "schematisations": schemas,
+    }

@@ -1,7 +1,9 @@
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import unquote
 
 import logging
+import os
 import subprocess
 
 
@@ -73,20 +75,44 @@ def convert_to_date(date: str) -> datetime:
     return datetime.fromisoformat(fixed_date)
 
 
-LOG_TEMPLATE = "{rev},{node},{desc|urlescape},{user|urlescape},{date|isodate}\n"
+LOG_TEMPLATE = "{rev},{node},{desc|urlescape},{user|urlescape},{date|isodate},{file_adds % '{file|urlescape}|'},{file_mods % '{file|urlescape}|'},{file_copies % '{file|urlescape}|'}\n"
+
+
+def filter_files(paths):
+    for path in paths:
+        if path.startswith(".hglf/"):
+            path = path[6:]
+        _, ext = os.path.splitext(path)
+        if ext.lower() in (".tif", ".tiff", ".geotif", ".geotiff", ".sqlite"):
+            yield Path(path)
 
 
 def parse_log_entry(row):
-    rev, node, desc, user, date = row.split(",")
+    rev, node, desc, user, date, file_adds, file_mods, file_copies = row.split(",")
+    # unpack the files
+    files = (
+        [unquote(f) for f in file_adds.split("|")[:-1]]
+        + [unquote(f) for f in file_mods.split("|")[:-1]]
+        + [unquote(f) for f in file_copies.split("|")[:-1]]
+    )
     return {
         "revision_nr": int(rev),
         "revision_hash": node,
         "commit_msg": unquote(desc),
         "commit_user": unquote(user),
         "last_update": convert_to_date(date),
+        "changes": list(filter_files(files)),
     }
 
 
 def log(repo_path):
     output = get_output(f'hg log -T "{LOG_TEMPLATE}"', cwd=repo_path, log=False)
     return [parse_log_entry(row) for row in output.strip().split("\n")]
+
+
+def files(repo_path, revision_hash):
+    """List all files in the repo"""
+    output = get_output(
+        f'hg files --rev {revision_hash} -X ".hgignore"', cwd=repo_path, log=False
+    )
+    return list(filter_files(output.strip().split("\n")))
