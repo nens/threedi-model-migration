@@ -38,7 +38,6 @@ class RepoSettings:
         for raster_path, raster_option in zip(record[2:], RasterOptions):
             if not raster_path:
                 continue
-            raster_path = Path(raster_path)
             rasters.append(Raster(raster_type=raster_option.name, path=raster_path))
         return cls(record[0], record[1], rasters)
 
@@ -64,8 +63,8 @@ class RepoSqlite:
 
             try:
                 records = select(full_path, SETTINGS_SQL)
-            except sqlite3.OperationalError as e:
-                logger.warning(f"{self} OperationalError {e}")
+            except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
+                logger.warning(f"{self} error {e}")
                 records = []
 
             if len(records) == 0:
@@ -81,7 +80,10 @@ class RepoSqlite:
                     paths = [(None,)] * len(records)
 
                 for record, path in zip(records, paths):
-                    record.append(path[0])
+                    raster_path = path[0]
+                    if raster_path:
+                        raster_path = self.sqlite_path.parent / Path(raster_path)
+                    record.append(raster_path)
 
             self.settings = [RepoSettings.from_record(record) for record in records]
 
@@ -110,13 +112,20 @@ class RepoRevision:
                 raise ValueError("Provide the repository when inspecting")
             repository.checkout(self.revision_hash)
             base = repository.path.resolve()
-            glob = base.glob("*.sqlite")
+            glob = [path.relative_to(base) for path in base.glob("**/*.sqlite")]
             self.sqlites = [
-                RepoSqlite(sqlite_path=path.relative_to(base)) for path in sorted(glob)
+                RepoSqlite(sqlite_path=path) for path in sorted(glob) if path.parts[0] != ".hglf"
             ]
             # also compute hashes now we have the checkout
+            changes = []
             for file in self.changes:
-                file.compute_md5(base_path=base)
+                try:
+                    file.compute_md5(base_path=base)
+                except FileNotFoundError:
+                    logger.warning(f"File {file.path} in changeset is not present!")
+                else:
+                    changes.append(file)
+            self.changes = changes
 
         return self.sqlites
 
