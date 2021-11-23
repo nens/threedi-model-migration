@@ -232,7 +232,6 @@ def batch(ctx, remote, uuid, last_update, inspect_mode, filters):
             )
         except Exception as e:
             logger.warning(f"Could not process {_metadata.slug}: {e}")
-            raise
         finally:
             # Always cleanup
             application.delete(base_path, slug)
