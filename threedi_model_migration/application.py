@@ -177,7 +177,7 @@ def download_inspect_plan(
 
     # Download & Inspect if necessary
     if inspect_mode == "always" or (
-        inspect_mode == "if-necessary" and _inspection_path.exists()
+        inspect_mode == "if-necessary" and not _inspection_path.exists()
     ):
         # COPY FROM download
         if uuid:
