@@ -14,6 +14,7 @@ from typing import Tuple
 
 import dataclasses
 import logging
+import shutil
 import sqlite3
 
 
@@ -147,7 +148,7 @@ class Repository:
     def remote_full(self):
         return self.remote + "/" + self.slug
 
-    def download(self, remote):
+    def download(self, remote, lfclear):
         """Get the latest commits from the remote (calls hg clone / pull and lfpull)"""
         if self.path.exists():
             logger.info(f"Pulling from {remote}...")
@@ -160,6 +161,13 @@ class Repository:
         logger.info("Pulling largefiles...")
         hg.pull_all_largefiles(self.path, remote)
         logger.info("Done.")
+        if lfclear:
+            logger.info("Clearing largefiles usercache...")
+            hg.clear_largefiles_cache()
+
+    def delete(self):
+        if self.path.exists():
+            shutil.rmtree(self.path)
 
     def get_revisions(
         self, last_update: Optional[datetime] = None

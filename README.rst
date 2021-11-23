@@ -26,15 +26,15 @@ $ threedi_model_migration --help
 
 Clone / pull::
 
-$ threedi_model_migration --name v2_bergermeer download
+$ threedi_model_migration download v2_bergermeer
 
 Inspect revisions and write to the inspection file in `/_inspection/{repo_name}.json`::
 
-$ threedi_model_migration --name v2_bergermeer inspect --last_update 2019-01-01
+$ threedi_model_migration inspect v2_bergermeer --last_update 2019-01-01
 
 Create a migration plan in `/_inspection/{repo_name}.plan.json`::
 
-$ threedi_model_migration --name v2_bergermeer plan
+$ threedi_model_migration plan v2_bergermeer
 v2_bergermeer-v2_bergermeer.sqlite-simple_infil_no_grndwtr: 95-107
 
 Credits

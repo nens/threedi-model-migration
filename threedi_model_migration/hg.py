@@ -4,6 +4,7 @@ from urllib.parse import unquote
 
 import logging
 import os
+import shutil
 import subprocess
 
 
@@ -54,6 +55,12 @@ def update(repo_path, revision_hash):
 
 def pull_all_largefiles(repo_path, remote):
     get_output(f'hg lfpull --rev "all()" {remote}', cwd=repo_path)
+
+
+def clear_largefiles_cache():
+    cachedir = Path.home() / ".cache/largefiles"
+    if cachedir.exists():
+        shutil.rmtree(cachedir)
 
 
 def init(repo_path):

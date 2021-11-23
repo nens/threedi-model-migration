@@ -24,6 +24,8 @@ History
 
 - Deal with nonexisting files.
 
+- Clear largefiles cache ($HOME/.cache/largefiles) after each clone or pull.
+
 
 0.1.0 (2021-11-11)
 ------------------
