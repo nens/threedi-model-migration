@@ -69,8 +69,8 @@ class SchemaMeta:
             slug=fields["slug"],
             repo_uuid=UUID(fields["uuid"]),
             owner=fields["organisation"][0],
-            created=created.replace(tzinfo=TIMEZONE),
-            last_update=last_update.replace(tzinfo=TIMEZONE),
+            created=TIMEZONE.localize(created),
+            last_update=TIMEZONE.localize(last_update),
             created_by=fields["owner"][0],
             meta=meta,
         )
