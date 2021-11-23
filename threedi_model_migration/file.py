@@ -56,6 +56,22 @@ def compute_md5(path: Path, chunk_size: int = 16777216):
     return md5, file_size
 
 
+def compare_paths(actual: Path, user_supplied: Path):
+    if actual.suffix == ".sqlite":
+        return actual == user_supplied
+
+    # convert to lowercase string
+    actual = actual.as_posix().lower()
+    user_supplied = user_supplied.as_posix().lower()
+
+    # replace backslash with slash
+    user_supplied.replace("\\", "/")
+    # strip whitespace and quotes
+    user_supplied.strip().strip("'\"")
+
+    return actual == user_supplied
+
+
 @dataclasses.dataclass
 class File:
     path: Path

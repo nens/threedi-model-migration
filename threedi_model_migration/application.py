@@ -5,6 +5,7 @@ from .json_utils import custom_json_serializer
 from .metadata import load_metadata
 from .repository import DEFAULT_REMOTE
 from .repository import Repository
+from .schematisation import SchemaMeta
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -156,13 +157,15 @@ def plan(
 
 
 def download_inspect_plan(
-    base_path, inspection_path, metadata, slug, remote, uuid, indent, last_update, cache
+    base_path, inspection_path, metadata, slug, remote, uuid, last_update, inspect_mode
 ):
     repository = Repository(base_path, slug)
     _inspection_path = inspection_path / f"{slug}.json"
 
     # Download & Inspect if necessary
-    if not cache or not _inspection_path.exists():
+    if inspect_mode == "always" or (
+        inspect_mode == "if-necessary" and _inspection_path.exists()
+    ):
         # COPY FROM download
         if uuid:
             remote_name = str(metadata[repository.slug].repo_uuid)
@@ -189,12 +192,14 @@ def download_inspect_plan(
             json.dump(
                 repository,
                 f,
-                indent=indent,
+                indent=4,
                 default=custom_json_serializer,
             )
-    else:
+    elif _inspection_path.exists():
         with _inspection_path.open("r") as f:
             repository = json.load(f, object_hook=custom_json_object_hook)
+    else:
+        return  # skip
 
     # COPY FROM plan
     result = repository_to_schematisations(repository, metadata)
@@ -202,6 +207,78 @@ def download_inspect_plan(
         json.dump(
             result,
             f,
-            indent=indent,
+            indent=4,
             default=custom_json_serializer,
         )
+
+
+def report(inspection_path: Path):
+    """Aggregate all plans into 1 repository and 1 schematisation CSV"""
+
+    REPOSITORY_CSV_FIELDNAMES = [
+        "repository_slug",
+        "owner",
+        "created",
+        "last_update",
+        "version",
+        "schematisation_count",
+        "file_count",
+        "file_size_mb",
+    ]
+
+    SCHEMATISATION_CSV_FIELDNAMES = [
+        "repository_slug",
+        "sqlite_name",
+        "settings_id",
+        "settings_name",
+        "owner",
+        "created",
+        "last_update",
+        "revision_count",
+        "first_rev_nr",
+        "last_rev_nr",
+    ]
+
+    with (inspection_path / "repositories.csv").open("w") as f1, (
+        inspection_path / "schematisations.csv"
+    ).open("w") as f2:
+        writer1 = csv.DictWriter(f1, fieldnames=REPOSITORY_CSV_FIELDNAMES)
+        writer1.writeheader()
+        writer2 = csv.DictWriter(f2, fieldnames=SCHEMATISATION_CSV_FIELDNAMES)
+        writer2.writeheader()
+
+        for path in inspection_path.glob("*.plan.json"):
+            with path.open("r") as f:
+                plan = json.load(f, object_hook=custom_json_object_hook)
+
+            try:
+                metadata: SchemaMeta = plan["schematisations"][0].metadata
+            except IndexError:
+                metadata = None
+
+            record = {
+                "repository_slug": plan["repository_slug"],
+                "owner": getattr(metadata, "owner", None),
+                "created": getattr(metadata, "created", None),
+                "last_update": getattr(metadata, "last_update", None),
+                "version": getattr(metadata, "meta", {}).get("version"),
+                "schematisation_count": plan["count"],
+                "file_count": plan["file_count"],
+                "file_size_mb": plan["file_size_mb"],
+            }
+
+            writer1.writerow(record)
+            for schematisation in plan["schematisations"]:
+                record = {
+                    "repository_slug": schematisation.slug,
+                    "sqlite_name": schematisation.sqlite_name,
+                    "settings_id": schematisation.settings_id,
+                    "settings_name": schematisation.settings_name,
+                    "owner": schematisation.metadata.owner,
+                    "created": schematisation.metadata.created,
+                    "last_update": schematisation.revisions[0].last_update,
+                    "revision_count": len(schematisation.revisions),
+                    "first_rev_nr": schematisation.revisions[-1].revision_nr,
+                    "last_rev_nr": schematisation.revisions[0].revision_nr,
+                }
+                writer2.writerow(record)

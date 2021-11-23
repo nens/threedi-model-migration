@@ -1,6 +1,7 @@
 from pathlib import Path
 from threedi_model_migration.file import RasterOptions
 
+import logging
 import pytest
 
 
@@ -101,6 +102,7 @@ def test_get_file(revision_nr, path, repository_inspected):
         (2, "db3.sqlite"),
     ],
 )
-def test_get_file_not_found(revision_nr, path, repository_inspected):
-    with pytest.raises(FileNotFoundError):
-        repository_inspected.get_file(revision_nr, Path(path))
+def test_get_file_not_found(revision_nr, path, repository_inspected, caplog):
+    caplog.set_level(logging.WARNING)
+    assert repository_inspected.get_file(revision_nr, Path(path)) is None
+    assert len(caplog.record_tuples) == 1

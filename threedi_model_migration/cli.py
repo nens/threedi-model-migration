@@ -169,24 +169,16 @@ def plan(ctx, slug, quiet):
     help="Whether to use UUIDs instead of repository slugs in the remote",
 )
 @click.option(
-    "-i",
-    "--indent",
-    type=int,
-    default=4,
-    help="The indentation in case of JSON output",
-)
-@click.option(
     "-l",
     "--last_update",
     type=click.DateTime(formats=["%Y-%m-%d"]),
     help="Revisions older than this are filtered",
 )
 @click.option(
-    "-c/-nc",
-    "--cache/--no-cache",
-    type=bool,
-    default=True,
-    help="Whether to redo the inspect if the inspection already exists",
+    "-i",
+    "--inspect_mode",
+    type=click.Choice(["never", "if-necessary", "always"], case_sensitive=False),
+    help="Controls whether the heavy clone & inspect tasks are done",
 )
 @click.option(
     "-f",
@@ -195,7 +187,7 @@ def plan(ctx, slug, quiet):
     help="A regex to match repository slug against",
 )
 @click.pass_context
-def batch(ctx, remote, uuid, indent, last_update, cache, filters):
+def batch(ctx, remote, uuid, last_update, inspect_mode, filters):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
     inspection_path = ctx.obj["inspection_path"]
@@ -220,15 +212,23 @@ def batch(ctx, remote, uuid, indent, last_update, cache, filters):
                 slug,
                 remote,
                 uuid,
-                indent,
                 last_update,
-                cache,
+                inspect_mode,
             )
         except Exception as e:
             logger.warning(f"Could not process {_metadata.slug}: {e}")
+            raise
         finally:
             # Always cleanup
             application.delete(base_path, slug)
+
+
+@main.command()
+@click.pass_context
+def report(ctx):
+    """Aggregate all plans into a two CSV files"""
+    inspection_path = ctx.obj["inspection_path"]
+    application.report(inspection_path)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,8 @@ def _unique_id(sqlite: RepoSqlite, settings: RepoSettings):
 
 def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
     file = repository.get_file(revision_nr, raster.path)
+    if file is None:
+        return
     return Raster(file.path, file.size, file.md5, raster_type=raster.raster_type)
 
 
@@ -42,7 +44,7 @@ def repository_to_schematisations(
         combinations = [
             (sqlite, settings)
             for sqlite in revision.sqlites
-            for settings in sqlite.settings
+            for settings in (sqlite.settings or [])
         ]
 
         # match settings-sqlite combinations with previous (newer) revision
@@ -82,17 +84,13 @@ def repository_to_schematisations(
 
         # append the revision for each
         for (sqlite, settings), target in zip(combinations, targets):
-            try:
-                _sqlite = repository.get_file(revision.revision_nr, sqlite.sqlite_path)
-                rasters = [
-                    raster_lookup(repository, revision.revision_nr, x)
-                    for x in settings.rasters
-                ]
-            except FileNotFoundError as e:
-                logger.warning(f"Skipping revision {revision.revision_nr} due to {e}")
-                previous_rev = {}
-                continue
-
+            _sqlite = repository.get_file(revision.revision_nr, sqlite.sqlite_path)
+            if _sqlite is None:
+                raise FileNotFoundError(f"Sqlite {sqlite.sqlite_path} does not exist")
+            rasters = [
+                raster_lookup(repository, revision.revision_nr, x)
+                for x in settings.rasters
+            ]
             schemas[target].revisions.append(
                 SchemaRevision(
                     sqlite_path=sqlite.sqlite_path,
@@ -103,7 +101,7 @@ def repository_to_schematisations(
                     commit_msg=revision.commit_msg,
                     commit_user=revision.commit_user,
                     sqlite=_sqlite,
-                    rasters=rasters,
+                    rasters=[x for x in rasters if x is not None],
                 )
             )
 

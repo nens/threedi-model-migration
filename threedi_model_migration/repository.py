@@ -1,4 +1,5 @@
 from . import hg
+from .file import compare_paths
 from .file import File
 from .file import Raster
 from .file import RasterOptions
@@ -32,15 +33,12 @@ class RepoSettings:
     rasters: List[Raster] = ()
 
     @classmethod
-    def from_record(cls, record, repository: Optional["Repository"] = None):
+    def from_record(cls, record):
         rasters = []
         for raster_path, raster_option in zip(record[2:], RasterOptions):
             if not raster_path:
                 continue
             raster_path = Path(raster_path)
-            fullpath = repository.path / raster_path
-            if not fullpath.exists():
-                logger.warn(f"Referenced raster {raster_path} does not exist.")
             rasters.append(Raster(raster_type=raster_option.name, path=raster_path))
         return cls(record[0], record[1], rasters)
 
@@ -85,10 +83,7 @@ class RepoSqlite:
                 for record, path in zip(records, paths):
                     record.append(path[0])
 
-            self.settings = [
-                RepoSettings.from_record(record, repository=repository)
-                for record in records
-            ]
+            self.settings = [RepoSettings.from_record(record) for record in records]
 
         return self.settings
 
@@ -232,9 +227,7 @@ class Repository:
             if revision.revision_nr > revision_nr:
                 continue
             for file in revision.changes:
-                if str(file.path) == str(path):
+                if compare_paths(file.path, path):
                     return file
 
-        raise FileNotFoundError(
-            f"File with path {path} was not found in revisions {revision_nr} and earlier."
-        )
+        logger.warning(f"File with path {path} not found.")
