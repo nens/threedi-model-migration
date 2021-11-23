@@ -1,4 +1,5 @@
 from .file import Raster
+from .metadata import InpyMeta
 from .metadata import SchemaMeta
 from .repository import RepoSettings
 from .repository import Repository
@@ -26,13 +27,19 @@ def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
 
 
 def repository_to_schematisations(
-    repository: Repository, metadata: Dict[str, SchemaMeta] = None
+    repository: Repository,
+    metadata: Dict[str, SchemaMeta] = None,
+    inpy_data: Dict[str, InpyMeta] = None,
+    org_lut: Dict[str, str] = None,
 ) -> List[Schematisation]:
     """Apply logic to convert a repository to several schematisations
 
     Supplied RepoSettings should belong to only 1 repository.
     """
-    metadata = metadata or {}
+    if metadata:
+        _metadata = metadata.get(repository.slug)
+    else:
+        _metadata = None
 
     # schemas is a list of schematisations
     schemas = []
@@ -77,7 +84,7 @@ def repository_to_schematisations(
                     settings_id=settings.settings_id,
                     settings_name=settings.settings_name,
                     revisions=[],
-                    metadata=metadata.get(repository.slug),
+                    metadata=_metadata,
                 )
                 schemas.append(schematisation)
                 targets[i] = len(schemas) - 1
@@ -113,10 +120,29 @@ def repository_to_schematisations(
     for schematisation in schemas:
         files |= schematisation.get_files()
 
+    # insert data from inpy
+    if inpy_data is not None and repository.slug in inpy_data:
+        n_threedimodels = inpy_data[repository.slug].n_threedimodels
+        n_inp_success = inpy_data[repository.slug].n_inp_success
+    elif inpy_data is not None:
+        n_threedimodels = n_inp_success = 0
+    else:
+        n_threedimodels = n_inp_success = None
+
+    # insert org name
+    if org_lut is not None and _metadata is not None:
+        org_name = org_lut.get(_metadata.owner)
+    else:
+        org_name = None
+
     return {
         "count": len(schemas),
         "file_count": len(files),
         "file_size_mb": int(sum(x.size for x in files) / (1024 ** 2)),
         "repository_slug": repository.slug,
+        "repository_meta": _metadata,
+        "n_threedimodels": n_threedimodels,
+        "n_inp_success": n_inp_success,
+        "org_name": org_name,
         "schematisations": schemas,
     }

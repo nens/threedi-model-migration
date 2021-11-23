@@ -114,7 +114,9 @@ class RepoRevision:
             base = repository.path.resolve()
             glob = [path.relative_to(base) for path in base.glob("**/*.sqlite")]
             self.sqlites = [
-                RepoSqlite(sqlite_path=path) for path in sorted(glob) if path.parts[0] != ".hglf"
+                RepoSqlite(sqlite_path=path)
+                for path in sorted(glob)
+                if path.parts[0] != ".hglf"
             ]
             # also compute hashes now we have the checkout
             changes = []

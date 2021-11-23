@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,7 +11,10 @@ import pytz
 
 TIMEZONE = pytz.timezone("Europe/Amsterdam")
 
-# bin/django-admin dumpdata --natural-foreign --indent=4 model_databank.ModelType model_databank.ModelReference > var/migration_dump.json
+# MODELDATABANK
+# bin/django-admin dumpdata --natural-foreign --indent=4 lizard_auth_client.Organisation model_databank.ModelType model_databank.ModelReference > var/migration_dump.json
+# INPY
+# bin/django dumpdata --indent=4 lizard_auth_client.Organisation threedi_model.ThreediModelRepository threedi_model.ThreediRevisionModel threedi_model.ThreediSQLiteModel threedi_model.ThreediModel > inpy.json
 
 
 @dataclass
@@ -76,7 +80,7 @@ class SchemaMeta:
         )
 
 
-def load_metadata(metadata_path: Path) -> Dict[str, SchemaMeta]:
+def load_modeldatabank(metadata_path: Path) -> Dict[str, SchemaMeta]:
     with metadata_path.open("r") as f:
         data = json.load(f)
 
@@ -97,3 +101,30 @@ def load_metadata(metadata_path: Path) -> Dict[str, SchemaMeta]:
         result[metadata.slug] = metadata
 
     return result
+
+
+@dataclass
+class InpyMeta:
+    n_threedimodels: int = 0
+    n_inp_success: int = 0
+
+
+def load_inpy(inpy_path: Path) -> Dict[str, InpyMeta]:
+    with inpy_path.open("r") as f:
+        data = json.load(f)
+
+    repo_lut = {}
+    org_lut = {}
+    result = defaultdict(InpyMeta)
+    for record in data:
+        if record["model"] == "threedi_model.threedimodelrepository":
+            repo_lut[record["pk"]] = record["fields"]["slug"]
+        elif record["model"] == "lizard_auth_client.organisation":
+            org_lut[record["fields"]["unique_id"]] = record["fields"]["name"]
+        elif record["model"] == "threedi_model.threedimodel":
+            repo_slug = repo_lut[record["fields"]["threedi_model_repository"]]
+            result[repo_slug].n_threedimodels += 1
+            if record["fields"]["inp_success"]:
+                result[repo_slug].n_inp_success += 1
+
+    return result, org_lut

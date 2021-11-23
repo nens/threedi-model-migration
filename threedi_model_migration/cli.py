@@ -1,6 +1,7 @@
 """Console script for threedi_model_migration."""
 from . import application
-from .metadata import load_metadata
+from .metadata import load_inpy
+from .metadata import load_modeldatabank
 from .repository import DEFAULT_REMOTE
 
 import click
@@ -28,6 +29,12 @@ logger = logging.getLogger(__name__)
     help="An optional path to a database dump of the modeldatabank, required when using --uuid",
 )
 @click.option(
+    "-i",
+    "--inpy_path",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An optional path to a database dump of inpy",
+)
+@click.option(
     "-v",
     "--verbosity",
     type=int,
@@ -35,12 +42,13 @@ logger = logging.getLogger(__name__)
     help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
 )
 @click.pass_context
-def main(ctx, base_path, metadata_path, verbosity):
+def main(ctx, base_path, metadata_path, inpy_path, verbosity):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
     ctx.obj["base_path"] = base_path
     ctx.obj["inspection_path"] = base_path / "_inspection"
     ctx.obj["metadata_path"] = metadata_path
+    ctx.obj["inpy_path"] = inpy_path
 
     # setup logging
     LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
@@ -149,6 +157,7 @@ def plan(ctx, slug, quiet):
         ctx.obj["inspection_path"],
         slug,
         ctx.obj["metadata_path"],
+        ctx.obj["inpy_path"],
         quiet,
     )
 
@@ -193,7 +202,11 @@ def batch(ctx, remote, uuid, last_update, inspect_mode, filters):
     inspection_path = ctx.obj["inspection_path"]
     if not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
-    metadata = load_metadata(ctx.obj["metadata_path"])
+    metadata = load_modeldatabank(ctx.obj["metadata_path"])
+    if ctx.obj["inpy_path"]:
+        inpy_data, org_lut = load_inpy(ctx.obj["inpy_path"])
+    else:
+        inpy_data = org_lut = None
 
     # sort newest first
     sorted_metadata = sorted(
@@ -209,6 +222,8 @@ def batch(ctx, remote, uuid, last_update, inspect_mode, filters):
                 base_path,
                 inspection_path,
                 metadata,
+                inpy_data,
+                org_lut,
                 slug,
                 remote,
                 uuid,

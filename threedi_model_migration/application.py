@@ -2,7 +2,8 @@
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
-from .metadata import load_metadata
+from .metadata import load_inpy
+from .metadata import load_modeldatabank
 from .repository import DEFAULT_REMOTE
 from .repository import Repository
 from .schematisation import SchemaMeta
@@ -47,7 +48,7 @@ def download(
     if uuid:
         if not metadata_path:
             raise ValueError("Please supply metadata_path")
-        metadata = load_metadata(metadata_path)
+        metadata = load_modeldatabank(metadata_path)
         remote_name = str(metadata[repository.slug].repo_uuid)
     else:
         remote_name = repository.slug
@@ -116,6 +117,7 @@ def plan(
     inspection_path: Path,
     slug: str,
     metadata_path: Optional[Path] = None,
+    inpy_path: Optional[Path] = None,
     quiet: bool = True,
 ):
     """Create a migration plan and write results to JSON.
@@ -125,16 +127,18 @@ def plan(
             migration file into.
         slug: The name of the repository.
         metadata_path: The path of a metadata file (models.lizard.net db dump)
+        inpy_path: The path of an inpy metadata file (inpy db dump)
         quiet: Whether to print a summary.
     """
-    metadata = load_metadata(metadata_path) if metadata_path else None
+    metadata = load_modeldatabank(metadata_path) if metadata_path else None
+    inpy_data, org_lut = load_inpy(inpy_path) if inpy_path else (None, None)
 
     with (inspection_path / f"{slug}.json").open("r") as f:
         repository = json.load(f, object_hook=custom_json_object_hook)
 
     assert repository.slug == slug
 
-    result = repository_to_schematisations(repository, metadata)
+    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
     if not quiet:
         print(f"Schematisation count: {result['count']}")
 
@@ -157,7 +161,16 @@ def plan(
 
 
 def download_inspect_plan(
-    base_path, inspection_path, metadata, slug, remote, uuid, last_update, inspect_mode
+    base_path,
+    inspection_path,
+    metadata,
+    inpy_data,
+    org_lut,
+    slug,
+    remote,
+    uuid,
+    last_update,
+    inspect_mode,
 ):
     repository = Repository(base_path, slug)
     _inspection_path = inspection_path / f"{slug}.json"
@@ -202,7 +215,7 @@ def download_inspect_plan(
         return  # skip
 
     # COPY FROM plan
-    result = repository_to_schematisations(repository, metadata)
+    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
             result,
@@ -224,6 +237,8 @@ def report(inspection_path: Path):
         "schematisation_count",
         "file_count",
         "file_size_mb",
+        "n_threedimodels",
+        "n_inp_success",
     ]
 
     SCHEMATISATION_CSV_FIELDNAMES = [
@@ -251,20 +266,18 @@ def report(inspection_path: Path):
             with path.open("r") as f:
                 plan = json.load(f, object_hook=custom_json_object_hook)
 
-            try:
-                metadata: SchemaMeta = plan["schematisations"][0].metadata
-            except IndexError:
-                metadata = None
-
+            metadata: SchemaMeta = plan["repository_meta"]
             record = {
                 "repository_slug": plan["repository_slug"],
-                "owner": getattr(metadata, "owner", None),
+                "owner": plan["org_name"] or getattr(metadata, "owner", None),
                 "created": getattr(metadata, "created", None),
                 "last_update": getattr(metadata, "last_update", None),
                 "version": getattr(metadata, "meta", {}).get("version"),
                 "schematisation_count": plan["count"],
                 "file_count": plan["file_count"],
                 "file_size_mb": plan["file_size_mb"],
+                "n_threedimodels": plan["n_threedimodels"],
+                "n_inp_success": plan["n_inp_success"],
             }
 
             writer1.writerow(record)
@@ -274,7 +287,7 @@ def report(inspection_path: Path):
                     "sqlite_name": schematisation.sqlite_name,
                     "settings_id": schematisation.settings_id,
                     "settings_name": schematisation.settings_name,
-                    "owner": schematisation.metadata.owner,
+                    "owner": plan["org_name"] or schematisation.metadata.owner,
                     "created": schematisation.metadata.created,
                     "last_update": schematisation.revisions[0].last_update,
                     "revision_count": len(schematisation.revisions),
