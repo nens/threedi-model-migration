@@ -112,8 +112,12 @@ class RepoRevision:
                 raise ValueError("Provide the repository when inspecting")
             repository.checkout(self.revision_hash)
             base = repository.path.resolve()
-            glob = [path.relative_to(base) for path in base.glob("*.sqlite")]
-            self.sqlites = [RepoSqlite(sqlite_path=path) for path in sorted(glob)]
+            glob = [path.relative_to(base) for path in base.glob("**/*.sqlite")]
+            self.sqlites = [
+                RepoSqlite(sqlite_path=path)
+                for path in sorted(glob)
+                if path.parts[0] != ".hglf"
+            ]
             # also compute hashes now we have the checkout
             changes = []
             for file in self.changes:
