@@ -2,7 +2,7 @@
 History
 =======
 
-0.1.1 (unreleased)
+0.2.0 (2021-11-24)
 ------------------
 
 - Renamed repository.name to repository.slug.
