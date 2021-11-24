@@ -20,15 +20,15 @@ def get_output(command, cwd=".", fail_on_exit_code=True, log=True):
         command,
         cwd=cwd,
         shell=True,
-        universal_newlines=True,
+        universal_newlines=False,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     i, o, e = (process.stdin, process.stdout, process.stderr)
     i.close()
-    output = o.read()
-    error_output = e.read()
+    output = o.read().decode("utf-8", "surrogateescape")
+    error_output = e.read().decode("utf-8", "surrogateescape")
     o.close()
     e.close()
     exit_code = process.wait()
