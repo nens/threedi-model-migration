@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "-l",
     "--lf_usercache_path",
-    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    type=click.Path(writable=True, path_type=pathlib.Path),
     help="Specify to clear the largefiles usercache after a download",
 )
 @click.option(
