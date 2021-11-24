@@ -157,7 +157,7 @@ class Repository:
     def remote_full(self):
         return self.remote + "/" + self.slug
 
-    def download(self, remote, lfclear):
+    def download(self, remote, lf_usercache_path):
         """Get the latest commits from the remote (calls hg clone / pull and lfpull)"""
         if self.path.exists():
             logger.info(f"Pulling from {remote}...")
@@ -170,9 +170,9 @@ class Repository:
         logger.info("Pulling largefiles...")
         hg.pull_all_largefiles(self.path, remote)
         logger.info("Done.")
-        if lfclear:
+        if lf_usercache_path:
             logger.info("Clearing largefiles usercache...")
-            hg.clear_largefiles_cache()
+            hg.clear_largefiles_cache(lf_usercache_path)
 
     def delete(self):
         if self.path.exists():

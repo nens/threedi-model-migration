@@ -57,8 +57,7 @@ def pull_all_largefiles(repo_path, remote):
     get_output(f'hg lfpull --rev "all()" {remote}', cwd=repo_path)
 
 
-def clear_largefiles_cache():
-    cachedir = Path.home() / ".cache/largefiles"
+def clear_largefiles_cache(cachedir):
     if cachedir.exists():
         shutil.rmtree(cachedir)
 
