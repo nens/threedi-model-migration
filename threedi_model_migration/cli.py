@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
     help="An optional path to a database dump of inpy",
 )
 @click.option(
-    "-l" "--lf_usercache_path",
+    "-l",
+    "--lf_usercache_path",
     type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
     help="Specify to clear the largefiles usercache after a download",
 )
