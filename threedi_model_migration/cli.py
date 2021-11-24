@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
     help="An optional path to a database dump of inpy",
 )
 @click.option(
-    "-l",
-    "--lf_usercache_path",
-    type=click.Path(writable=True, path_type=pathlib.Path),
+    "--lfclear",
+    type=bool,
+    default=False,
     help="Specify to clear the largefiles usercache after a download",
 )
 @click.option(
@@ -48,14 +48,14 @@ logger = logging.getLogger(__name__)
     help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
 )
 @click.pass_context
-def main(ctx, base_path, metadata_path, inpy_path, lf_usercache_path, verbosity):
+def main(ctx, base_path, metadata_path, inpy_path, lfclear, verbosity):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
     ctx.obj["base_path"] = base_path
     ctx.obj["inspection_path"] = base_path / "_inspection"
     ctx.obj["metadata_path"] = metadata_path
     ctx.obj["inpy_path"] = inpy_path
-    ctx.obj["lf_usercache_path"] = lf_usercache_path
+    ctx.obj["lfclear"] = lfclear
 
     # setup logging
     LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
@@ -96,7 +96,7 @@ def download(ctx, slug, remote, uuid, lfclear):
         remote,
         uuid,
         ctx.obj["metadata_path"],
-        ctx.obj["lf_usercache_path"],
+        ctx.obj["lfclear"],
     )
 
 
@@ -209,7 +209,7 @@ def batch(ctx, remote, uuid, last_update, inspect_mode, include, exclude):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
     inspection_path = ctx.obj["inspection_path"]
-    lf_usercache_path = ctx.obj["lf_usercache_path"]
+    lfclear = ctx.obj["lfclear"]
     if not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
     metadata = load_modeldatabank(ctx.obj["metadata_path"])
@@ -235,7 +235,7 @@ def batch(ctx, remote, uuid, last_update, inspect_mode, include, exclude):
                 inspection_path,
                 metadata,
                 inpy_data,
-                lf_usercache_path,
+                lfclear,
                 org_lut,
                 slug,
                 remote,

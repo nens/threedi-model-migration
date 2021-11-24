@@ -169,7 +169,7 @@ def download_inspect_plan(
     inspection_path,
     metadata,
     inpy_data,
-    lf_usercache_path,
+    lfclear,
     org_lut,
     slug,
     remote,
@@ -194,7 +194,7 @@ def download_inspect_plan(
         if remote.endswith("/"):
             remote = remote[:-1]
 
-        repository.download(remote + "/" + remote_name, lf_usercache_path)
+        repository.download(remote + "/" + remote_name, lfclear)
 
         # COPY FROM inspect
         logger.info(f"Inspecting {slug}...")
