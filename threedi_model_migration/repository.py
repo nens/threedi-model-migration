@@ -52,13 +52,15 @@ class RepoSqlite:
 
     def get_settings(
         self,
+        do_checkout=True,
         repository: Optional["Repository"] = None,
         revision: Optional["RepoRevision"] = None,
     ) -> List[RepoSettings]:
         if self.settings is None:
             if repository is None or revision is None:
                 raise ValueError("Provide the repository and revision when inspecting")
-            repository.checkout(revision.revision_hash)
+            if do_checkout:
+                repository.checkout(revision.revision_hash)
             full_path = repository.path / self.sqlite_path
 
             try:
@@ -104,13 +106,14 @@ class RepoRevision:
     sqlites: Optional[List[RepoSqlite]] = None
 
     def get_sqlites(
-        self, repository: Optional["Repository"] = None
+        self, do_checkout=True, repository: Optional["Repository"] = None
     ) -> List[RepoSqlite]:
         """Return a list of sqlites in this revision"""
         if self.sqlites is None:
             if repository is None:
                 raise ValueError("Provide the repository when inspecting")
-            repository.checkout(self.revision_hash)
+            if do_checkout:
+                repository.checkout(self.revision_hash)
             base = repository.path.resolve()
             glob = [path.relative_to(base) for path in base.glob("**/*.sqlite")]
             self.sqlites = [
@@ -226,8 +229,10 @@ class Repository:
         date are considered.
         """
         for revision in self.get_revisions(last_update=last_update):
-            for sqlite in revision.get_sqlites(repository=self):
-                for settings in sqlite.get_settings(repository=self, revision=revision):
+            for sqlite in revision.get_sqlites(repository=self, do_checkout=True):
+                for settings in sqlite.get_settings(
+                    repository=self, revision=revision, do_checkout=False
+                ):
                     yield revision, sqlite, settings
         # go back to tip
         self.checkout("tip")

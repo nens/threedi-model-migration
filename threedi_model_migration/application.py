@@ -15,6 +15,10 @@ from typing import TextIO
 import csv
 import dataclasses
 import json
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 INSPECT_CSV_FIELDNAMES = [
@@ -179,6 +183,7 @@ def download_inspect_plan(
     if inspect_mode == "always" or (
         inspect_mode == "if-necessary" and not _inspection_path.exists()
     ):
+        logger.info(f"Downloading {slug}...")
         # COPY FROM download
         if uuid:
             remote_name = str(metadata[repository.slug].repo_uuid)
@@ -191,6 +196,7 @@ def download_inspect_plan(
         repository.download(remote + "/" + remote_name, lfclear=True)
 
         # COPY FROM inspect
+        logger.info(f"Inspecting {slug}...")
         for revision, sqlite, settings in repository.inspect(last_update):
             record = {
                 **dataclasses.asdict(revision),
@@ -215,6 +221,7 @@ def download_inspect_plan(
         return  # skip
 
     # COPY FROM plan
+    logger.info(f"Planning {slug}...")
     result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
@@ -223,6 +230,7 @@ def download_inspect_plan(
             indent=4,
             default=custom_json_serializer,
         )
+    logger.info(f"Done processing {slug}.")
 
 
 def report(inspection_path: Path):

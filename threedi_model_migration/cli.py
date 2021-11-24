@@ -5,9 +5,9 @@ from .metadata import load_modeldatabank
 from .repository import DEFAULT_REMOTE
 
 import click
+import fnmatch
 import logging
 import pathlib
-import re
 import sys
 
 
@@ -190,13 +190,21 @@ def plan(ctx, slug, quiet):
     help="Controls whether the heavy clone & inspect tasks are done",
 )
 @click.option(
-    "-f",
-    "--filters",
+    "-I",
+    "--include",
     type=str,
-    help="A regex to match repository slug against",
+    multiple=True,
+    help="Pattern(s) to only process specific repository slugs",
+)
+@click.option(
+    "-X",
+    "--exclude",
+    type=str,
+    multiple=True,
+    help="Pattern(s) to exclude specific repository slugs (takes precedence over include)",
 )
 @click.pass_context
-def batch(ctx, remote, uuid, last_update, inspect_mode, filters):
+def batch(ctx, remote, uuid, last_update, inspect_mode, include, exclude):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
     inspection_path = ctx.obj["inspection_path"]
@@ -215,7 +223,9 @@ def batch(ctx, remote, uuid, last_update, inspect_mode, filters):
 
     for _metadata in sorted_metadata:
         slug = _metadata.slug
-        if filters and not re.match(filters, slug):
+        if include and not any(fnmatch.fnmatch(slug, x) for x in include):
+            continue
+        if exclude and any(fnmatch.fnmatch(slug, x) for x in exclude):
             continue
         try:
             application.download_inspect_plan(
