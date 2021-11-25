@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote_to_bytes
 
 import logging
 import os
@@ -8,6 +8,16 @@ import subprocess
 
 
 logger = logging.getLogger(__name__)
+
+
+def decode(bytestring: bytes):
+    # Decode using the file system encoding.
+    return os.fsdecode(bytestring)
+
+
+def unquote(s: str):
+    # Unquote and decode using the file system encoding.
+    return decode(unquote_to_bytes(s))
 
 
 def get_output(command, cwd=".", fail_on_exit_code=True, log=True):
@@ -27,8 +37,8 @@ def get_output(command, cwd=".", fail_on_exit_code=True, log=True):
     )
     i, o, e = (process.stdin, process.stdout, process.stderr)
     i.close()
-    output = o.read().decode("utf-8", "surrogateescape")
-    error_output = e.read().decode("utf-8", "surrogateescape")
+    output = decode(o.read())
+    error_output = decode(e.read())
     o.close()
     e.close()
     exit_code = process.wait()
@@ -49,7 +59,7 @@ def pull(repo_path, remote):
 
 
 def update(repo_path, revision_hash):
-    get_output(f"hg update -v {revision_hash}", cwd=repo_path)
+    get_output(f"hg update -v {revision_hash} -C", cwd=repo_path)
 
 
 def pull_all_largefiles(repo_path, remote):
