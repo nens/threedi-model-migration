@@ -9,6 +9,8 @@ History
 
 - Always to a clean update (ignoring uncommitted changes).
 
+- Retry updates one time.
+
 
 0.2.0 (2021-11-24)
 ------------------

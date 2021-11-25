@@ -59,7 +59,11 @@ def pull(repo_path, remote):
 
 
 def update(repo_path, revision_hash):
-    get_output(f"hg update -v {revision_hash} -C", cwd=repo_path)
+    try:
+        get_output(f"hg update -v {revision_hash} -C -y", cwd=repo_path)
+    except RuntimeError:
+        # just try again.... Mercurial...
+        get_output(f"hg update -v {revision_hash} -C -y", cwd=repo_path)
 
 
 def pull_all_largefiles(repo_path, remote):
