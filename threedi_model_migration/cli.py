@@ -136,7 +136,9 @@ def inspect(ctx, slug, last_update, quiet):
         ctx.obj["inspection_path"],
         slug,
         last_update,
-        click.get_text_stream("stdout", errors="surrogateescape") if not quiet else None,
+        click.get_text_stream("stdout", errors="surrogateescape")
+        if not quiet
+        else None,
     )
 
 

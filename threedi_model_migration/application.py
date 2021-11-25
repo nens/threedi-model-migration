@@ -263,9 +263,9 @@ def report(inspection_path: Path):
         "last_rev_nr",
     ]
 
-    with Path("repositories.csv").open("w") as f1, Path("schematisations.csv").open(
-        "w"
-    ) as f2:
+    with Path("repositories.csv").open("w", errors="surrogateescape") as f1, Path(
+        "schematisations.csv"
+    ).open("w", errors="surrogateescape") as f2:
         writer1 = csv.DictWriter(f1, fieldnames=REPOSITORY_CSV_FIELDNAMES)
         writer1.writeheader()
         writer2 = csv.DictWriter(f2, fieldnames=SCHEMATISATION_CSV_FIELDNAMES)
