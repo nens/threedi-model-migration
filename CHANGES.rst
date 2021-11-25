@@ -2,7 +2,7 @@
 History
 =======
 
-0.2.1 (unreleased)
+0.2.1 (2021-11-25)
 ------------------
 
 - Fixed issues in legacy repositories that used Latin-1 encoding for filenames.
