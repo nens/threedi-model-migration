@@ -7,6 +7,8 @@ History
 
 - Fixed issues in legacy repositories that used Latin-1 encoding for filenames.
 
+- Always to a clean update (ignoring uncommitted changes).
+
 
 0.2.0 (2021-11-24)
 ------------------
