@@ -122,15 +122,8 @@ class RepoRevision:
                 if path.parts[0] != ".hglf"
             ]
             # also compute hashes now we have the checkout
-            changes = []
             for file in self.changes:
-                try:
-                    file.compute_md5(base_path=base)
-                except FileNotFoundError:
-                    logger.warning(f"File {file.path} in changeset is not present!")
-                else:
-                    changes.append(file)
-            self.changes = changes
+                file.compute_md5(base_path=base)
 
         return self.sqlites
 

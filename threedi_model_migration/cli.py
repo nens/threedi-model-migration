@@ -88,7 +88,7 @@ def main(ctx, base_path, metadata_path, inpy_path, lfclear, verbosity):
     help="Whether to use UUIDs instead of repository slugs in the remote",
 )
 @click.pass_context
-def download(ctx, slug, remote, uuid, lfclear):
+def download(ctx, slug, remote, uuid):
     """Clones / pulls a repository"""
     application.download(
         ctx.obj["base_path"],
@@ -136,7 +136,7 @@ def inspect(ctx, slug, last_update, quiet):
         ctx.obj["inspection_path"],
         slug,
         last_update,
-        click.get_text_stream("stdout") if not quiet else None,
+        click.get_text_stream("stdout", errors="surrogateescape") if not quiet else None,
     )
 
 

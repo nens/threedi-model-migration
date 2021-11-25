@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote_to_bytes
 
 import logging
 import os
@@ -8,6 +8,16 @@ import subprocess
 
 
 logger = logging.getLogger(__name__)
+
+
+def decode(bytestring: bytes):
+    # Decode using the file system encoding.
+    return os.fsdecode(bytestring)
+
+
+def unquote(s: str):
+    # Unquote and decode using the file system encoding.
+    return decode(unquote_to_bytes(s))
 
 
 def get_output(command, cwd=".", fail_on_exit_code=True, log=True):
@@ -20,15 +30,15 @@ def get_output(command, cwd=".", fail_on_exit_code=True, log=True):
         command,
         cwd=cwd,
         shell=True,
-        universal_newlines=True,
+        universal_newlines=False,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     i, o, e = (process.stdin, process.stdout, process.stderr)
     i.close()
-    output = o.read()
-    error_output = e.read()
+    output = decode(o.read())
+    error_output = decode(e.read())
     o.close()
     e.close()
     exit_code = process.wait()
@@ -49,7 +59,11 @@ def pull(repo_path, remote):
 
 
 def update(repo_path, revision_hash):
-    get_output(f"hg update -v {revision_hash}", cwd=repo_path)
+    try:
+        get_output(f"hg update -v {revision_hash} -C -y", cwd=repo_path)
+    except RuntimeError:
+        # just try again.... Mercurial...
+        get_output(f"hg update -v {revision_hash} -C -y", cwd=repo_path)
 
 
 def pull_all_largefiles(repo_path, remote):
