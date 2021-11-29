@@ -260,5 +260,22 @@ def report(ctx):
     application.report(inspection_path)
 
 
+@main.command()
+@click.argument(
+    "symlinks_path",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    required=True,
+)
+@click.pass_context
+def patch_uuids(ctx, symlinks_path):
+    """Patch inspection data that have a UUID as slug."""
+    application.patch_uuids(
+        ctx.obj["inspection_path"],
+        symlinks_path,
+        ctx.obj["metadata_path"],
+        ctx.obj["inpy_path"],
+    )
+
+
 if __name__ == "__main__":
     sys.exit(main())  # pragma: no cover

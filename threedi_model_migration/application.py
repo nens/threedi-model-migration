@@ -4,6 +4,7 @@ from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
 from .metadata import load_inpy
 from .metadata import load_modeldatabank
+from .metadata import load_symlinks
 from .repository import DEFAULT_REMOTE
 from .repository import Repository
 from .schematisation import SchemaMeta
@@ -11,11 +12,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from typing import TextIO
+from uuid import UUID
 
 import csv
 import dataclasses
 import json
 import logging
+import shutil
 
 
 logger = logging.getLogger(__name__)
@@ -305,3 +308,78 @@ def report(inspection_path: Path):
                     "last_rev_nr": schematisation.revisions[0].revision_nr,
                 }
                 writer2.writerow(record)
+
+
+def patch_uuids(
+    inspection_path: Path,
+    symlinks_path: Path,
+    metadata_path: Optional[Path],
+    inpy_path: Optional[Path],
+):
+    """Patch inspection data (repositories and plans) that have a UUID as slug."""
+    symlinks = load_symlinks(symlinks_path)
+    metadata = load_modeldatabank(metadata_path) if metadata_path else None
+    inpy_data, org_lut = load_inpy(inpy_path) if inpy_path else (None, None)
+
+    for path in inspection_path.glob("*???????-????-????-????????????*.json"):
+        with path.open("r") as f:
+            obj = json.load(f, object_hook=custom_json_object_hook)
+
+        if isinstance(obj, Repository):
+            uuid = obj.slug
+        else:
+            uuid = obj["repository_slug"]
+
+        try:
+            uuid = UUID(uuid)
+        except ValueError:
+            continue  # no uuid: skip
+
+        try:
+            slug = symlinks[uuid]
+        except KeyError:
+            logger.warning(f"Unknown repository: {uuid}")
+            continue
+
+        if isinstance(obj, Repository):
+            obj.slug = slug
+        else:
+            if metadata is not None:
+                _metadata = metadata.get(slug)
+            else:
+                _metadata = None
+
+            # Insert data from Inpy
+            if inpy_data is not None and slug in inpy_data:
+                n_threedimodels = inpy_data[slug].n_threedimodels
+                n_inp_success = inpy_data[slug].n_inp_success
+            elif inpy_data is not None:
+                n_threedimodels = n_inp_success = 0
+            else:
+                n_threedimodels = n_inp_success = None
+
+            # insert org name
+            if org_lut is not None and _metadata is not None:
+                org_name = org_lut.get(_metadata.owner)
+            else:
+                org_name = None
+
+            # patch the plan
+            obj["repository_slug"] = slug
+            obj["repository_meta"] = _metadata
+            obj["org_name"] = org_name
+            obj["n_threedimodels"] = n_threedimodels
+            obj["n_inp_success"] = n_inp_success
+            for schematisation in obj["schematisations"]:
+                schematisation.slug = slug
+                schematisation.metadata = _metadata
+
+        shutil.copyfile(path, str(path) + ".bak")
+        with path.open("w") as f:
+            json.dump(
+                obj,
+                f,
+                indent=4,
+                default=custom_json_serializer,
+            )
+        logger.info(f"Patched repository {slug} (formerly: {uuid})")

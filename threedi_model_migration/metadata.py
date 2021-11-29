@@ -7,6 +7,7 @@ from uuid import UUID
 
 import json
 import pytz
+import re
 
 
 TIMEZONE = pytz.timezone("Europe/Amsterdam")
@@ -16,7 +17,12 @@ TIMEZONE = pytz.timezone("Europe/Amsterdam")
 # INPY
 # bin/django dumpdata --indent=4 lizard_auth_client.Organisation threedi_model.ThreediModelRepository threedi_model.ThreediRevisionModel threedi_model.ThreediSQLiteModel threedi_model.ThreediModel > inpy.json
 
-# SYMLINK_REGEX = re.compile(r".*\s(\S+)\s->.*(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b).*")
+# SYMLINKS
+# ls -larth
+
+SYMLINK_REGEX = re.compile(
+    r".*\s(\S+)\s->.*(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b).*"
+)
 
 
 @dataclass
@@ -130,3 +136,12 @@ def load_inpy(inpy_path: Path) -> Dict[str, InpyMeta]:
                 result[repo_slug].n_inp_success += 1
 
     return result, org_lut
+
+
+def load_symlinks(symlink_path: Path) -> Dict[UUID, str]:
+    with symlink_path.open("r") as f:
+        lines = f.readlines()
+
+    matches = [SYMLINK_REGEX.findall(line) for line in lines]
+    matches = [m[0] for m in matches if len(m) == 1]
+    return {UUID(m[1]): m[0] for m in matches}

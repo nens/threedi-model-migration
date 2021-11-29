@@ -5,7 +5,8 @@ History
 0.2.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Added patch-uuid command to enrich inspection reports without any metadata, using the
+  symlinks to map uuids to repository slugs.
 
 
 0.2.1 (2021-11-25)
