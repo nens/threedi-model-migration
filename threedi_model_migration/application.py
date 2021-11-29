@@ -291,13 +291,14 @@ def report(inspection_path: Path):
 
             writer1.writerow(record)
             for schematisation in plan["schematisations"]:
+                md = schematisation.metadata
                 record = {
                     "repository_slug": schematisation.slug,
                     "sqlite_name": schematisation.sqlite_name,
                     "settings_id": schematisation.settings_id,
                     "settings_name": schematisation.settings_name,
-                    "owner": plan["org_name"] or schematisation.metadata.owner,
-                    "created": schematisation.metadata.created,
+                    "owner": plan["org_name"] or getattr(md, "owner", None),
+                    "created": getattr(md, "created", None),
                     "last_update": schematisation.revisions[0].last_update,
                     "revision_count": len(schematisation.revisions),
                     "first_rev_nr": schematisation.revisions[-1].revision_nr,

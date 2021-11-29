@@ -16,6 +16,8 @@ TIMEZONE = pytz.timezone("Europe/Amsterdam")
 # INPY
 # bin/django dumpdata --indent=4 lizard_auth_client.Organisation threedi_model.ThreediModelRepository threedi_model.ThreediRevisionModel threedi_model.ThreediSQLiteModel threedi_model.ThreediModel > inpy.json
 
+# SYMLINK_REGEX = re.compile(r".*\s(\S+)\s->.*(\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b).*")
+
 
 @dataclass
 class SchemaMeta:
