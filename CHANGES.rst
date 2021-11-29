@@ -2,7 +2,7 @@
 History
 =======
 
-0.2.2 (unreleased)
+0.3.0 (2021-11-29)
 ------------------
 
 - Added patch-uuid command to enrich inspection reports without any metadata, using the
