@@ -91,7 +91,7 @@ def test_inspect(repository_inspected):
     ],
 )
 def test_get_file(revision_nr, path, repository_inspected):
-    file = repository_inspected.get_file(revision_nr, Path(path))
+    _, file = repository_inspected.get_file(revision_nr, Path(path))
     assert file.path.name == path
 
 
@@ -104,5 +104,5 @@ def test_get_file(revision_nr, path, repository_inspected):
 )
 def test_get_file_not_found(revision_nr, path, repository_inspected, caplog):
     caplog.set_level(logging.WARNING)
-    assert repository_inspected.get_file(revision_nr, Path(path)) is None
+    assert repository_inspected.get_file(revision_nr, Path(path))[1] is None
     assert len(caplog.record_tuples) == 1

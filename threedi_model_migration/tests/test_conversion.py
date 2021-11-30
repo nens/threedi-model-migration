@@ -8,23 +8,34 @@ from threedi_model_migration.repository import Repository
 from threedi_model_migration.repository import RepoSqlite
 
 import pytest
+import hashlib
+import random
+
+def random_md5():
+    random_bytes = bytes([random.randrange(0, 256) for _ in range(0, 128)])
+    return hashlib.md5(random_bytes).hexdigest()
+
+
+def random_files(n):
+    return [
+        File(path=Path(f"db{i}"), md5=random_md5(), size=i * 1024) for i in range(1, n + 1)
+    ]
+
+def create_revision(revision_nr, sqlites):
+    return RepoRevision(
+        revision_nr,
+        hashlib.md5(f"hash{revision_nr}".encode()),
+        datetime(2019, 2, 2 + revision_nr),
+        f"My {revision_nr}nd commit",
+        "username",
+        sqlites=sqlites,
+        changes=random_files(3),
+    )
 
 
 def gen_repo(*revision_sqlites):
-    files = [
-        File(path=Path(f"db{i}"), md5=f"abc{i}", size=i * 1024) for i in range(1, 4)
-    ]
     revisions = [
-        RepoRevision(
-            i + 1,
-            f"hash{i}",
-            datetime(2019, 2, 2 + i),
-            f"My {i}nd commit",
-            "username",
-            sqlites=sqlites,
-            changes=files if i == 0 else [],
-        )
-        for i, sqlites in enumerate(revision_sqlites)
+        create_revision(i + 1, sqlites) for i, sqlites in enumerate(revision_sqlites)
     ]
     return Repository(
         base_path=Path("/tmp"),

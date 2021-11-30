@@ -228,13 +228,13 @@ class Repository:
         # go back to tip
         self.checkout("tip")
 
-    def get_file(self, revision_nr: int, path: Path) -> File:
+    def get_file(self, revision_nr: int, path: Path) -> Tuple[int, File]:
         """Inspect revisions <revision_nr> and earlier to get a File"""
         for revision in self.revisions:
             if revision.revision_nr > revision_nr:
                 continue
             for file in revision.changes:
                 if compare_paths(file.path, path):
-                    return file
+                    return revision.revision_nr, file
 
         logger.warning(f"File with path {path} not found.")
