@@ -10,23 +10,23 @@ def test_revisions(repository_inspected):
     assert len(revisions) == 2
 
     assert revisions[0].commit_msg == "My second commit"
-    assert revisions[0].revision_nr == 2
+    assert revisions[0].revision_nr == 1
     assert len(revisions[0].changes) == 1
     assert revisions[0].changes[0].path.name == "db2.sqlite"
     assert revisions[1].commit_msg == "My first commit"
-    assert revisions[1].revision_nr == 1
+    assert revisions[1].revision_nr == 0
     assert len(revisions[1].changes) == 1
     assert revisions[1].changes[0].path.name == "db1.sqlite"
 
 
 def test_checkout_newest(repository):
-    repository.checkout(2)
+    repository.checkout(1)
     assert (repository.path / "db1.sqlite").exists()
     assert (repository.path / "db2.sqlite").exists()
 
 
 def test_checkout_oldest(repository):
-    repository.checkout(1)
+    repository.checkout(0)
     assert (repository.path / "db1.sqlite").exists()
     assert not (repository.path / "db2.sqlite").exists()
 
@@ -65,19 +65,19 @@ def test_inspect(repository_inspected):
 
     # newest to oldest
     revision, sqlite, settings = result[0]
-    assert revision.revision_nr == 2
+    assert revision.revision_nr == 1
     assert sqlite.sqlite_path.name == "db1.sqlite"
     assert settings.settings_id == 1
     revision, sqlite, settings = result[1]
-    assert revision.revision_nr == 2
+    assert revision.revision_nr == 1
     assert sqlite.sqlite_path.name == "db2.sqlite"
     assert settings.settings_id == 1
     revision, sqlite, settings = result[2]
-    assert revision.revision_nr == 2
+    assert revision.revision_nr == 1
     assert sqlite.sqlite_path.name == "db2.sqlite"
     assert settings.settings_id == 2
     revision, sqlite, settings = result[3]
-    assert revision.revision_nr == 1
+    assert revision.revision_nr == 0
     assert sqlite.sqlite_path.name == "db1.sqlite"
     assert settings.settings_id == 1
 
@@ -98,8 +98,8 @@ def test_get_file(revision_nr, path, repository_inspected):
 @pytest.mark.parametrize(
     "revision_nr,path",
     [
-        (1, "db2.sqlite"),
-        (2, "db3.sqlite"),
+        (0, "db2.sqlite"),
+        (1, "db3.sqlite"),
     ],
 )
 def test_get_file_not_found(revision_nr, path, repository_inspected, caplog):

@@ -130,7 +130,7 @@ class RepoRevision:
     @classmethod
     def from_log(cls, revision_nr, **fields):
         fields["changes"] = [File(x) for x in fields["changes"]]
-        return cls(revision_nr=revision_nr + 1, **fields)  # like in model databank
+        return cls(revision_nr=revision_nr, **fields)  # like in model databank
 
     def __repr__(self):
         return f"RepoRevision({self.revision_nr})"
@@ -206,8 +206,6 @@ class Repository:
             hash_or_nr = int(hash_or_nr)
         except ValueError:
             pass
-        else:
-            hash_or_nr -= 1  # model databank does +1 on revision_nr display
         hg.update(self.path, hash_or_nr)
         logger.info(f"Updated working directory to revision {hash_or_nr}.")
 
