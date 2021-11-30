@@ -79,8 +79,8 @@ def repository_to_schematisations(
         for i, (sqlite, settings) in enumerate(combinations):
             if targets[i] is None:
                 schematisation = Schematisation(
-                    slug=repository.slug,
-                    sqlite_name=str(sqlite.sqlite_path),
+                    repo_slug=repository.slug,
+                    sqlite_name=str(sqlite.sqlite_path).split(".sqlite")[0],
                     settings_id=settings.settings_id,
                     settings_name=settings.settings_name,
                     revisions=[],
@@ -116,9 +116,16 @@ def repository_to_schematisations(
         previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
 
     # extract unique files
-    files = set()
+    files_in_schema = set()
     for schematisation in schemas:
-        files |= schematisation.get_files()
+        files_in_schema |= schematisation.get_files()
+
+    # list files omitted from schematisations
+    files_omitted = {}
+    for revision in repository.revisions:
+        omitted = set(revision.changes) - files_in_schema
+        if len(omitted) > 0:
+            files_omitted[str(revision.revision_nr)] = list(omitted)
 
     # insert data from inpy
     if inpy_data is not None and repository.slug in inpy_data:
@@ -135,10 +142,16 @@ def repository_to_schematisations(
     else:
         org_name = None
 
+    # check schematisation name uniqueness
+    names = [s.name for s in schemas]
+    if len(names) != len(set(names)):
+        raise RuntimeError("Non-unique schematisation names!")
+
     return {
         "count": len(schemas),
-        "file_count": len(files),
-        "file_size_mb": int(sum(x.size for x in files) / (1024 ** 2)),
+        "file_count": len(files_in_schema),
+        "file_size_mb": int(sum(x.size for x in files_in_schema) / (1024 ** 2)),
+        "files_omitted": files_omitted,
         "repository_slug": repository.slug,
         "repository_meta": _metadata,
         "n_threedimodels": n_threedimodels,
