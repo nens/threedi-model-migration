@@ -206,15 +206,23 @@ def plan(ctx, slug, quiet):
     multiple=True,
     help="Pattern(s) to exclude specific repository slugs (takes precedence over include)",
 )
+@click.option(
+    "-o",
+    "--owner_blacklist_path",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An optional path to a file listing unique_ids of organisations to ignore",
+)
 @click.pass_context
-def batch(ctx, remote, uuid, last_update, inspect_mode, include, exclude):
+def batch(
+    ctx, remote, uuid, last_update, inspect_mode, include, exclude, owner_blacklist_path
+):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
     inspection_path = ctx.obj["inspection_path"]
     lfclear = ctx.obj["lfclear"]
     if not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
-    metadata = load_modeldatabank(ctx.obj["metadata_path"])
+    metadata = load_modeldatabank(ctx.obj["metadata_path"], owner_blacklist_path)
     if ctx.obj["inpy_path"]:
         inpy_data, org_lut = load_inpy(ctx.obj["inpy_path"])
     else:

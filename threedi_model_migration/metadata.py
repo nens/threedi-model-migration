@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict
+from typing import Optional
 from uuid import UUID
 
 import json
@@ -39,7 +40,7 @@ class SchemaMeta:
     meta: Dict[str, str]
 
     @classmethod
-    def from_dump(cls, record):
+    def from_dump(cls, record, v2_type_pk, owner_blacklist):
         """Parse a record like this:
 
         {
@@ -64,9 +65,21 @@ class SchemaMeta:
         }
         """
         assert record["model"] == "model_databank.modelreference"
+        assert v2_type_pk is not None
+
         fields = record["fields"]
 
-        meta = {"version": fields["type"]}
+        # skip deleted ones
+        if fields["is_deleted"]:
+            return
+        # only process 3di-v2 model types
+        if fields["type"] != v2_type_pk:
+            return
+        # skip blacklisted organisations
+        if fields["organisation"][0] in owner_blacklist:
+            return
+
+        meta = {}
         if fields["description"]:
             meta["description"] = fields["description"]
 
@@ -88,25 +101,38 @@ class SchemaMeta:
         )
 
 
-def load_modeldatabank(metadata_path: Path) -> Dict[str, SchemaMeta]:
+def load_modeldatabank(
+    metadata_path: Path, owner_blacklist_path: Optional[Path] = None
+) -> Dict[str, SchemaMeta]:
+    """Load modeldatabank database dump
+
+    Some filters are in place:
+
+    - organisation blacklist
+    - only do 3di-v2 modeltypes
+    """
     with metadata_path.open("r") as f:
         data = json.load(f)
+    if owner_blacklist_path:
+        with owner_blacklist_path.open("r") as f:
+            lines = [x.strip() for x in f.readlines()]
+            owner_blacklist = set([x for x in lines if len(x) == 32])
+    else:
+        owner_blacklist = set()
 
-    type_lut = {}
+    v2_type_pk = None
     result = {}
     for record in data:
         if record["model"] == "model_databank.modeltype":
-            type_lut[record["pk"]] = record["fields"]["name"]
+            if record["fields"]["slug"] == "3di-v2":
+                v2_type_pk = record["pk"]
             continue
         if record["model"] != "model_databank.modelreference":
             continue
-        # patch type
-        record["fields"]["type"] = type_lut[record["fields"]["type"]]
-        # skip deleted ones
-        if record["fields"]["is_deleted"]:
-            continue
-        metadata = SchemaMeta.from_dump(record)
-        result[metadata.slug] = metadata
+
+        metadata = SchemaMeta.from_dump(record, v2_type_pk, owner_blacklist)
+        if metadata is not None:
+            result[metadata.slug] = metadata
 
     return result
 

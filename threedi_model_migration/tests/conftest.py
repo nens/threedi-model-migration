@@ -59,6 +59,11 @@ def metadata_json_path():
 
 
 @pytest.fixture(scope="session")
+def owner_blacklist_path():
+    return DATA_PATH / "owner_blacklist.txt"
+
+
+@pytest.fixture(scope="session")
 def repository(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("repositories")
     repo_path = tmp_path / "testrepo"

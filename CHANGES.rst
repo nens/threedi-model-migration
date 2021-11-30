@@ -5,7 +5,9 @@ History
 0.3.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Skip 3Di v1 repositories.
+
+- Implement owner_blacklist_path.
 
 
 0.3.0 (2021-11-29)
