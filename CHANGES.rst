@@ -5,6 +5,10 @@ History
 0.3.1 (unreleased)
 ------------------
 
+- Skip 3Di v1 repositories.
+
+- Implement owner_blacklist_path.
+
 - Removed off-by-one in revision_nr. Now the original mercurial numbers are taken and
   not the ones from models.lizard.net (which are + 1).
 
