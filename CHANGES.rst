@@ -9,6 +9,9 @@ History
 
 - Implement owner_blacklist_path.
 
+- Removed off-by-one in revision_nr. Now the original mercurial numbers are taken and
+  not the ones from models.lizard.net (which are + 1).
+
 
 0.3.0 (2021-11-29)
 ------------------
