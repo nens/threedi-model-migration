@@ -6,6 +6,7 @@ from .file import RasterOptions
 from .sql import RASTER_SQL_MAP
 from .sql import select
 from .sql import SETTINGS_SQL
+from copy import copy
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator
@@ -70,7 +71,8 @@ class RepoSqlite:
                 records = []
 
             if len(records) == 0:
-                return []
+                self.settings = []
+                return self.settings
 
             # Pragmatic fix: in earlier sqlite schemas, some tables / columns
             # may not exist. Do each query separately and wrap in try..except.
@@ -146,12 +148,28 @@ class Repository:
     def path(self):
         return self.base_path / self.slug
 
+    def __repr__(self):
+        return f"Repository({self.slug})"
+
     @property
     def remote_full(self):
         return self.remote + "/" + self.slug
 
-    def download(self, remote, lfclear=False):
-        """Get the latest commits from the remote (calls hg clone / pull and lfpull)"""
+    def download(self, remote, ifnewer=False, lfclear=False):
+        """Get the latest commits from the remote (calls hg clone / pull and lfpull)
+
+        Returns whether the download was actually done.
+        """
+        if ifnewer and self.revisions:
+            logger.info(f"Requesting last revision hash from {remote}...")
+            last_revision_hash = hg.identify_tip(remote)
+            if self.revisions[0].revision_hash == last_revision_hash:
+                # nothing to do
+                logger.info("Skipping download as revision hash is not newer.")
+                return False
+            else:
+                logger.info(f"Detected a newer revision hash {last_revision_hash}.")
+
         if self.path.exists():
             logger.info(f"Pulling from {remote}...")
             hg.pull(self.path, remote)
@@ -167,6 +185,12 @@ class Repository:
             logger.info("Clearing largefiles usercache...")
             hg.clear_largefiles_cache()
 
+        return True
+
+    def identify_tip(self, remote):
+        """Returns the hash of the latest revision at the remote"""
+        return hg.identify_tip(remote)
+
     def delete(self):
         if self.path.exists():
             shutil.rmtree(self.path)
@@ -179,26 +203,37 @@ class Repository:
         Optionally filter by last_update. If supplied, only revisions newer than that
         date are considered.
         """
-        if self.revisions is None or last_update is not None:
-            revisions = []
-            for record in hg.log(self.path):
-                revision = RepoRevision.from_log(**record)
-                if last_update is not None:
-                    truncated_revision_last_update = revision.last_update.replace(
-                        hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-                    )
-                    if truncated_revision_last_update < last_update:
-                        break
-                revisions.append(revision)
+        new_revs = [RepoRevision.from_log(**x) for x in hg.log(self.path)]
+        existing_hashes = set(r.revision_hash for r in (self.revisions or []))
+        if existing_hashes:
+            # Merge with what is already present
+            for new_rev in new_revs:
+                if new_rev.revision_hash not in existing_hashes:
+                    self.revisions.append(new_rev)
+            self.revisions = sorted(self.revisions, key=lambda x: -x.revision_nr)
+            rev_nrs = [rev.revision_nr for rev in self.revisions]
+            if len(rev_nrs) != len(set(rev_nrs)):
+                raise RuntimeError(f"{self} has non-unique revisions numbers!")
+        else:
+            self.revisions = new_revs
 
+        # filter on last_update (only for return value)
+        if last_update is not None:
+            revisions = [
+                r
+                for r in self.revisions
+                if r.last_update.replace(tzinfo=None) >= last_update
+            ]
             # patch the 'changes' of the oldest commit when filtering on last_update
             # so that all files are present in the Repository
-            if last_update is not None and len(revisions) > 0:
-                revisions[-1].changes = [
-                    File(x) for x in hg.files(self.path, revisions[-1].revision_hash)
+            if len(revisions) > 0:
+                revisions[0] = copy(revisions[0])
+                revisions[0].changes = [
+                    File(x) for x in hg.files(self.path, revisions[0].revision_hash)
                 ]
-            self.revisions = revisions
-        return self.revisions
+            return revisions
+        else:
+            return self.revisions
 
     def checkout(self, hash_or_nr: str):
         """Update the working directory to given revision hash (calls hg update)"""
@@ -220,7 +255,12 @@ class Repository:
         date are considered.
         """
         for revision in self.get_revisions(last_update=last_update):
+            revision_has_sqlites = revision.sqlites is not None
             for sqlite in revision.get_sqlites(repository=self, do_checkout=True):
+                # Workaround: If the revision had sqlites, this means they are inspected
+                # We patch sqlite.settings to [] if it is None to suppress re-inspection
+                if revision_has_sqlites and sqlite.settings is None:
+                    sqlite.settings = []
                 for settings in sqlite.get_settings(
                     repository=self, revision=revision, do_checkout=False
                 ):
@@ -237,5 +277,4 @@ class Repository:
                 if compare_paths(file.path, path):
                     return revision.revision_nr, file
 
-        logger.warning(f"File with path {path} not found.")
         return None, None

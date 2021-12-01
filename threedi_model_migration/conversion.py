@@ -7,6 +7,7 @@ from .repository import RepoSqlite
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict
 from typing import List
 
@@ -20,10 +21,18 @@ def _unique_id(sqlite: RepoSqlite, settings: RepoSettings):
     return (str(sqlite.sqlite_path), settings.settings_id)
 
 
-def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
+def raster_lookup(
+    repository: Repository, revision_nr: int, sqlite_path: Path, raster: Raster
+):
     revision, file = repository.get_file(revision_nr, raster.path)
     if file is None:
-        return
+        # it could be that the raster path was not relative to the sqlite, but
+        # relative to the repo.
+        other_path = raster.path.relative_to(sqlite_path.parent)
+        revision, file = repository.get_file(revision_nr, other_path)
+        if file is None:
+            logger.warning(f"{raster} not present in {repository} #0-{revision_nr}.")
+            return
     return revision, Raster(
         file.path, file.size, file.md5, raster_type=raster.raster_type
     )
@@ -74,7 +83,7 @@ def repository_to_schematisations(
             if sqlite_file is None:
                 raise FileNotFoundError(f"Sqlite {sqlite.sqlite_path} does not exist")
             rasters = [
-                raster_lookup(repository, revision.revision_nr, x)
+                raster_lookup(repository, revision.revision_nr, sqlite.sqlite_path, x)
                 for x in settings.rasters
             ]
             rasters = [x for x in rasters if x is not None]
@@ -82,7 +91,7 @@ def repository_to_schematisations(
                 x[0] == revision.revision_nr for x in rasters
             ):
                 logger.info(
-                    f"Skipped revision {revision.revision_nr} in schematisation '{schematisation.name}'."
+                    f"Skipped rev #{revision.revision_nr} in '{schematisation}'."
                 )
                 continue
 

@@ -52,7 +52,6 @@ def main(ctx, base_path, metadata_path, inpy_path, lfclear, verbosity):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
     ctx.obj["base_path"] = base_path
-    ctx.obj["inspection_path"] = base_path / "_inspection"
     ctx.obj["metadata_path"] = metadata_path
     ctx.obj["inpy_path"] = inpy_path
     ctx.obj["lfclear"] = lfclear
@@ -87,16 +86,30 @@ def main(ctx, base_path, metadata_path, inpy_path, lfclear, verbosity):
     default=False,
     help="Whether to use UUIDs instead of repository slugs in the remote",
 )
+@click.option(
+    "-i/-ni",
+    "--ifnewer/--not-ifnewer",
+    type=bool,
+    default=False,
+    help="Whether to skip the download if the inspection file is up to date",
+)
 @click.pass_context
-def download(ctx, slug, remote, uuid):
+def download(ctx, slug, remote, uuid, ifnewer):
     """Clones / pulls a repository"""
+    if uuid and not ctx.obj["metadata_path"]:
+        raise ValueError("Please supply metadata_path")
+    if uuid:
+        metadata = load_modeldatabank(ctx.obj["metadata_path"])
+    else:
+        metadata = None
     application.download(
         ctx.obj["base_path"],
         slug,
         remote,
         uuid,
-        ctx.obj["metadata_path"],
+        metadata,
         ctx.obj["lfclear"],
+        ifnewer,
     )
 
 
@@ -143,7 +156,6 @@ def inspect(ctx, slug, inspect_mode, last_update, quiet):
         out = None
     application.inspect(
         ctx.obj["base_path"],
-        ctx.obj["inspection_path"],
         slug,
         inspect_mode,
         last_update,
@@ -166,7 +178,7 @@ def inspect(ctx, slug, inspect_mode, last_update, quiet):
 def plan(ctx, slug, quiet):
     """Plans schematisation migration for given inspect result"""
     application.plan(
-        ctx.obj["inspection_path"],
+        ctx.obj["base_path"],
         slug,
         ctx.obj["metadata_path"],
         ctx.obj["inpy_path"],
@@ -227,7 +239,6 @@ def batch(
 ):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
-    inspection_path = ctx.obj["inspection_path"]
     lfclear = ctx.obj["lfclear"]
     if not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
@@ -251,7 +262,6 @@ def batch(
         try:
             application.download_inspect_plan(
                 base_path,
-                inspection_path,
                 metadata,
                 inpy_data,
                 lfclear,
@@ -273,8 +283,7 @@ def batch(
 @click.pass_context
 def report(ctx):
     """Aggregate all plans into a two CSV files"""
-    inspection_path = ctx.obj["inspection_path"]
-    application.report(inspection_path)
+    application.report(ctx.obj["base_path"])
 
 
 @main.command()
@@ -287,7 +296,7 @@ def report(ctx):
 def patch_uuids(ctx, symlinks_path):
     """Patch inspection data that have a UUID as slug."""
     application.patch_uuids(
-        ctx.obj["inspection_path"],
+        ctx.obj["base_path"],
         symlinks_path,
         ctx.obj["metadata_path"],
         ctx.obj["inpy_path"],

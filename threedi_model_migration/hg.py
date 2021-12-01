@@ -59,7 +59,7 @@ def pull(repo_path, remote):
 
 
 def identify_tip(remote):
-    get_output(f"hg id -r tip {remote} -T {{node}}")
+    return get_output(f"hg id -r tip {remote} -T {{node}}")
 
 
 def update(repo_path, revision_hash):
