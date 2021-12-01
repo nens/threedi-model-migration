@@ -59,7 +59,7 @@ class Schematisation:
         return result
 
     def __repr__(self):
-        return f"Schematisation({self.slug}, sqlite_name={self.sqlite_name}, settings_name={self.settings_name})"
+        return f"Schematisation({self.name})"
 
     def create_report(self):
         return {

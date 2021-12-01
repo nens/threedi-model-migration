@@ -1,5 +1,5 @@
 from pathlib import Path
-from threedi_model_migration.file import File
+from threedi_model_migration.file import File, Raster
 from threedi_model_migration.repository import RepoRevision
 from threedi_model_migration.repository import Repository
 
@@ -12,6 +12,15 @@ class FileFactory(factory.Factory):
 
     class Meta:
         model = File
+
+
+class RasterFactory(factory.Factory):
+    md5 = factory.Faker("md5", raw_output=False)
+    size = factory.Faker("random_int", min=1)
+
+    class Meta:
+        model = Raster
+
 
 
 class RepoRevisionFactory(factory.Factory):

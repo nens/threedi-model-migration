@@ -254,7 +254,7 @@ def batch(
                 inspect_mode,
             )
         except Exception as e:
-            logger.warning(f"Could not process {_metadata.slug}: {e}")
+            logger.exception(f"Could not process {_metadata.slug}: {e}")
         finally:
             # Always cleanup
             application.delete(base_path, slug)

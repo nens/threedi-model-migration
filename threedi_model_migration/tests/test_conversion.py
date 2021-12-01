@@ -1,6 +1,6 @@
 from .factories import FileFactory
 from .factories import RepoRevisionFactory
-from .factories import RepositoryFactory
+from .factories import RepositoryFactory, RasterFactory
 from pathlib import Path
 from threedi_model_migration.conversion import repository_to_schematisations
 from threedi_model_migration.repository import RepoSettings as Sett
@@ -9,11 +9,11 @@ from threedi_model_migration.repository import RepoSqlite as Sql
 import pytest
 
 
-def gen_repo(*revision_sqlites, files=None):
-    if files is None:
+def gen_repo(*revision_sqlites, paths=None):
+    if paths is None:
         # Every sqlite is present in its associated changeset
-        files = [
-            [FileFactory(path=sqlite.sqlite_path) for sqlite in sqlites]
+        paths = [
+            [sqlite.sqlite_path for sqlite in sqlites]
             for sqlites in revision_sqlites
         ]
     n = len(revision_sqlites)
@@ -21,9 +21,9 @@ def gen_repo(*revision_sqlites, files=None):
         RepoRevisionFactory(
             revision_nr=n - i - 1,
             sqlites=sqlites,
-            changes=_files,
+            changes=[FileFactory(path=path) for path in _paths],
         )
-        for i, (sqlites, _files) in enumerate(zip(revision_sqlites, files))
+        for i, (sqlites, _paths) in enumerate(zip(revision_sqlites, paths))
     ]
     return RepositoryFactory(
         slug="testrepo",
@@ -113,7 +113,7 @@ def gen_repo(*revision_sqlites, files=None):
             ["testrepo - db1 - 1 b"],
             [[1, 0]],
         ),
-        # Settings entry skips a revision; it counts as a new one
+        # Settings entry skips a revision
         (
             gen_repo(
                 [
@@ -126,10 +126,10 @@ def gen_repo(*revision_sqlites, files=None):
                     Sql(Path("db1"), settings=[Sett(2, "b")]),
                 ],
             ),
-            ["testrepo - db1 - 1 a", "testrepo - db1 - 2 b", "testrepo - db1 - 2 c"],
-            [[2, 1, 0], [0], [2]],
+            ["testrepo - db1 - 1 a", "testrepo - db1 - 2 c"],
+            [[2, 1, 0], [2, 0]],
         ),
-        # Renaming an sqlite is allowed
+        # Renaming an sqlite is not allowed
         (
             gen_repo(
                 [Sql(Path("db2"), settings=[Sett(1, "a")])],
@@ -173,6 +173,36 @@ def gen_repo(*revision_sqlites, files=None):
             ),
             ["testrepo - db1 - 1 a", "testrepo - db3 - 1 a"],
             [[1, 0], [1, 0]],
+        ),
+        # File is missing in changet of 2nd revision
+        (
+            gen_repo(
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
+                paths=[[], [Path("db1")]],
+            ),
+            ["testrepo - db1 - 1 a"],
+            [[0]],
+        ),
+        # Sqlite is missing in changet of 2nd revision but a raster was changed
+        (
+            gen_repo(
+                [Sql(Path("db1"), settings=[Sett(1, "a", rasters=[RasterFactory(path=Path("r.tiff"))])])],
+                [Sql(Path("db1"), settings=[Sett(1, "a", rasters=[RasterFactory(path=Path("r.tiff"))])])],
+                paths=[[Path("r.tiff")], [Path("db1"), Path("r.tiff")]],
+            ),
+            ["testrepo - db1 - 1 a"],
+            [[1, 0]],
+        ),
+        # Sqlite is missing in changet of 2nd revision and no raster was changed
+        (
+            gen_repo(
+                [Sql(Path("db1"), settings=[Sett(1, "a", rasters=[RasterFactory(path=Path("r.tiff"))])])],
+                [Sql(Path("db1"), settings=[Sett(1, "a", rasters=[RasterFactory(path=Path("r.tiff"))])])],
+                paths=[[], [Path("db1"), Path("r.tiff")]],
+            ),
+            ["testrepo - db1 - 1 a"],
+            [[0]],
         ),
     ],
 )
