@@ -1,45 +1,31 @@
-from datetime import datetime
+from .factories import FileFactory
+from .factories import RepoRevisionFactory
+from .factories import RepositoryFactory
 from pathlib import Path
 from threedi_model_migration.conversion import repository_to_schematisations
-from threedi_model_migration.file import File
-from threedi_model_migration.repository import RepoRevision
-from threedi_model_migration.repository import RepoSettings
-from threedi_model_migration.repository import Repository
-from threedi_model_migration.repository import RepoSqlite
+from threedi_model_migration.repository import RepoSettings as Sett
+from threedi_model_migration.repository import RepoSqlite as Sql
 
 import pytest
-import hashlib
-import random
-
-def random_md5():
-    random_bytes = bytes([random.randrange(0, 256) for _ in range(0, 128)])
-    return hashlib.md5(random_bytes).hexdigest()
 
 
-def random_files(n):
-    return [
-        File(path=Path(f"db{i}"), md5=random_md5(), size=i * 1024) for i in range(1, n + 1)
-    ]
-
-def create_revision(revision_nr, sqlites):
-    return RepoRevision(
-        revision_nr,
-        hashlib.md5(f"hash{revision_nr}".encode()),
-        datetime(2019, 2, 2 + revision_nr),
-        f"My {revision_nr}nd commit",
-        "username",
-        sqlites=sqlites,
-        changes=random_files(3),
-    )
-
-
-def gen_repo(*revision_sqlites):
+def gen_repo(*revision_sqlites, files=None):
+    if files is None:
+        # Every sqlite is present in its associated changeset
+        files = [
+            [FileFactory(path=sqlite.sqlite_path) for sqlite in sqlites]
+            for sqlites in revision_sqlites
+        ]
     n = len(revision_sqlites)
     revisions = [
-        create_revision(n - i - 1, sqlites) for i, sqlites in enumerate(revision_sqlites)
+        RepoRevisionFactory(
+            revision_nr=n - i - 1,
+            sqlites=sqlites,
+            changes=_files,
+        )
+        for i, (sqlites, _files) in enumerate(zip(revision_sqlites, files))
     ]
-    return Repository(
-        base_path=Path("/tmp"),
+    return RepositoryFactory(
         slug="testrepo",
         revisions=revisions,
     )
@@ -50,15 +36,15 @@ def gen_repo(*revision_sqlites):
     [
         # One revision, one sqlite, one settings entry
         (
-            gen_repo([RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])]),
+            gen_repo([Sql(Path("db1"), settings=[Sett(1, "a")])]),
             ["testrepo-db1-a"],
             [[0]],
         ),
         # Two revisions with the same sqlite and settings
         (
             gen_repo(
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db1-a"],
             [[1, 0]],
@@ -67,9 +53,9 @@ def gen_repo(*revision_sqlites):
         (
             gen_repo(
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db2"), settings=[RepoSettings(1, "a")]),
-                ],
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db2"), settings=[Sett(1, "a")]),
+                ]
             ),
             ["testrepo-db1-a", "testrepo-db2-a"],
             [[0], [0]],
@@ -78,9 +64,9 @@ def gen_repo(*revision_sqlites):
         (
             gen_repo(
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(2, "b")]),
-                ],
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db1"), settings=[Sett(2, "b")]),
+                ]
             ),
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[0], [0]],
@@ -88,8 +74,8 @@ def gen_repo(*revision_sqlites):
         # Two revisions with one sqlites with different settings ("settings renumbered")
         (
             gen_repo(
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(2, "b")])],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
+                [Sql(Path("db1"), settings=[Sett(2, "b")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[0], [1]],
@@ -98,11 +84,10 @@ def gen_repo(*revision_sqlites):
         (
             gen_repo(
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db2"), settings=[RepoSettings(1, "a")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db2"), settings=[Sett(1, "a")]),
                 ],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
-                
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db1-a", "testrepo-db2-a"],
             [[1, 0], [1]],
@@ -111,11 +96,10 @@ def gen_repo(*revision_sqlites):
         (
             gen_repo(
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(2, "b")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db1"), settings=[Sett(2, "b")]),
                 ],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
-                
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db1-a", "testrepo-db1-b"],
             [[1, 0], [1]],
@@ -123,9 +107,8 @@ def gen_repo(*revision_sqlites):
         # Setting is renamed: it is tracked (and the last revision will set the name)
         (
             gen_repo(
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "b")])],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
-                
+                [Sql(Path("db1"), settings=[Sett(1, "b")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db1-b"],
             [[1, 0]],
@@ -134,13 +117,13 @@ def gen_repo(*revision_sqlites):
         (
             gen_repo(
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(2, "c")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db1"), settings=[Sett(2, "c")]),
                 ],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(2, "b")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db1"), settings=[Sett(2, "b")]),
                 ],
             ),
             ["testrepo-db1-a", "testrepo-db1-b", "testrepo-db1-c"],
@@ -149,9 +132,8 @@ def gen_repo(*revision_sqlites):
         # Renaming an sqlite is allowed
         (
             gen_repo(
-                [RepoSqlite(Path("db2"), settings=[RepoSettings(1, "a")])],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
-                
+                [Sql(Path("db2"), settings=[Sett(1, "a")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db2-a"],
             [[1, 0]],
@@ -159,9 +141,8 @@ def gen_repo(*revision_sqlites):
         # Renaming an sqlite is allowed, but a settings id must remain constant
         (
             gen_repo(
-                [RepoSqlite(Path("db2"), settings=[RepoSettings(2, "b")])],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
-                
+                [Sql(Path("db2"), settings=[Sett(2, "b")])],
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db1-a", "testrepo-db2-b"],
             [[0], [1]],
@@ -170,11 +151,10 @@ def gen_repo(*revision_sqlites):
         (
             gen_repo(
                 [
-                    RepoSqlite(Path("db2"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db2"), settings=[RepoSettings(2, "b")]),
+                    Sql(Path("db2"), settings=[Sett(1, "a")]),
+                    Sql(Path("db2"), settings=[Sett(2, "b")]),
                 ],
-                [RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")])],
-                
+                [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
             ["testrepo-db2-a", "testrepo-db2-b"],
             [[1, 0], [1]],
@@ -183,14 +163,13 @@ def gen_repo(*revision_sqlites):
         (
             gen_repo(
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db3"), settings=[RepoSettings(1, "a")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db3"), settings=[Sett(1, "a")]),
                 ],
                 [
-                    RepoSqlite(Path("db1"), settings=[RepoSettings(1, "a")]),
-                    RepoSqlite(Path("db2"), settings=[RepoSettings(1, "a")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a")]),
+                    Sql(Path("db2"), settings=[Sett(1, "a")]),
                 ],
-                
             ),
             ["testrepo-db1-a", "testrepo-db3-a"],
             [[1, 0], [1, 0]],

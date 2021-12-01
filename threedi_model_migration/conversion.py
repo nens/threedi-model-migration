@@ -23,7 +23,9 @@ def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
     revision, file = repository.get_file(revision_nr, raster.path)
     if file is None:
         return
-    return revision, Raster(file.path, file.size, file.md5, raster_type=raster.raster_type)
+    return revision, Raster(
+        file.path, file.size, file.md5, raster_type=raster.raster_type
+    )
 
 
 def repository_to_schematisations(
@@ -91,14 +93,18 @@ def repository_to_schematisations(
 
         # append the revision for each
         for (sqlite, settings), target in zip(combinations, targets):
-            sqlite_revision_nr, _sqlite = repository.get_file(revision.revision_nr, sqlite.sqlite_path)
+            sqlite_revision_nr, _sqlite = repository.get_file(
+                revision.revision_nr, sqlite.sqlite_path
+            )
             if _sqlite is None:
                 raise FileNotFoundError(f"Sqlite {sqlite.sqlite_path} does not exist")
             rasters = [
                 raster_lookup(repository, revision.revision_nr, x)
                 for x in settings.rasters
             ]
-            if sqlite_revision_nr != revision.revision_nr and not any(x[0] == revision.revision_nr for x in rasters):
+            if sqlite_revision_nr != revision.revision_nr and not any(
+                x[0] == revision.revision_nr for x in rasters
+            ):
                 logger.info(
                     f"Skipped revision {revision.revision_nr} in schematisation '{schemas[target].concat_name}'."
                 )
