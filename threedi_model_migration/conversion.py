@@ -6,10 +6,9 @@ from .repository import Repository
 from .repository import RepoSqlite
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
+from collections import defaultdict
 from typing import Dict
 from typing import List
-
-from collections import defaultdict
 
 import logging
 
@@ -50,8 +49,8 @@ def repository_to_schematisations(
 
     # partition into unique (sqlite_path, settings_id) combinations
     for revision in sorted(repository.revisions, key=lambda x: -x.revision_nr):
-        for sqlite in (revision.sqlites or []):
-            for settings in (sqlite.settings or []):
+        for sqlite in revision.sqlites or []:
+            for settings in sqlite.settings or []:
                 key = (sqlite.sqlite_path, settings.settings_id)
                 combinations[key].append((revision, sqlite, settings))
 
@@ -69,10 +68,10 @@ def repository_to_schematisations(
 
         # append the revision for each
         for (revision, sqlite, settings) in _combinations:
-            sqlite_revision_nr, _sqlite = repository.get_file(
+            sqlite_revision_nr, sqlite_file = repository.get_file(
                 revision.revision_nr, sqlite.sqlite_path
             )
-            if _sqlite is None:
+            if sqlite_file is None:
                 raise FileNotFoundError(f"Sqlite {sqlite.sqlite_path} does not exist")
             rasters = [
                 raster_lookup(repository, revision.revision_nr, x)
@@ -96,7 +95,7 @@ def repository_to_schematisations(
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
                     commit_user=revision.commit_user,
-                    sqlite=_sqlite,
+                    sqlite=sqlite_file,
                     rasters=[x[1] for x in rasters if x is not None],
                 )
             )
@@ -105,7 +104,9 @@ def repository_to_schematisations(
             raise RuntimeError(f"Schematisation {schematisation.name} has 0 revisions!")
         rev_nrs = [rev.revision_nr for rev in schematisation.revisions]
         if len(rev_nrs) != len(set(rev_nrs)):
-            raise RuntimeError(f"Schematisation {schematisation.name} has non-unique revisions!")
+            raise RuntimeError(
+                f"Schematisation {schematisation.name} has non-unique revisions!"
+            )
 
         schemas.append(schematisation)
 
@@ -117,19 +118,24 @@ def repository_to_schematisations(
         adjacent = []
         for schema_2 in schemas:
             if (
-                (schema_2.revisions[-1].revision_nr == expected_first_nr)
-                and (schema_2.settings_id == schema_1.settings_id)
+                schema_2.revisions[-1].revision_nr == expected_first_nr
+                and schema_2.settings_id == schema_1.settings_id
             ):
                 adjacent.append(schema_2)
-        
+
         if len(adjacent) != 1:
             continue  # cannot merge if situation is ambiguous
-    
+
         schema_2 = adjacent[0]
         schema_2.revisions.extend(schema_1.revisions)
         to_delete.append(schema_1)
     if len(to_delete) > 0:
         schemas = [s for s in schemas if s not in to_delete]
+
+    # check schematisation name uniqueness
+    names = [s.name for s in schemas]
+    if len(names) != len(set(names)):
+        raise RuntimeError("Non-unique schematisation names!")
 
     # extract unique files
     files_in_schema = set()

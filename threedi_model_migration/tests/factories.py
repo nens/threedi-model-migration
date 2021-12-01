@@ -1,5 +1,6 @@
 from pathlib import Path
-from threedi_model_migration.file import File, Raster
+from threedi_model_migration.file import File
+from threedi_model_migration.file import Raster
 from threedi_model_migration.repository import RepoRevision
 from threedi_model_migration.repository import Repository
 
@@ -20,7 +21,6 @@ class RasterFactory(factory.Factory):
 
     class Meta:
         model = Raster
-
 
 
 class RepoRevisionFactory(factory.Factory):
