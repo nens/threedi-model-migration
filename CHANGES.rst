@@ -16,6 +16,12 @@ History
 
 - Added "files_omitted" attribute to schematisation plans.
 
+- Don't include SchemaRevisions that didn't have any change for the specfic
+  schematisation.
+
+- All schematisations with identical (repository, sqlite path, settings id) are
+  grouped together now.
+
 
 0.3.0 (2021-11-29)
 ------------------

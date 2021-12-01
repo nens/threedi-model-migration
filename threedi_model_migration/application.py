@@ -245,7 +245,6 @@ def report(inspection_path: Path):
         "owner",
         "created",
         "last_update",
-        "version",
         "schematisation_count",
         "file_count",
         "file_size_mb",
@@ -254,10 +253,7 @@ def report(inspection_path: Path):
     ]
 
     SCHEMATISATION_CSV_FIELDNAMES = [
-        "repository_slug",
-        "sqlite_name",
-        "settings_id",
-        "settings_name",
+        "name",
         "owner",
         "created",
         "last_update",
@@ -284,7 +280,6 @@ def report(inspection_path: Path):
                 "owner": plan["org_name"] or getattr(metadata, "owner", None),
                 "created": getattr(metadata, "created", None),
                 "last_update": getattr(metadata, "last_update", None),
-                "version": getattr(metadata, "meta", {}).get("version"),
                 "schematisation_count": plan["count"],
                 "file_count": plan["file_count"],
                 "file_size_mb": plan["file_size_mb"],
@@ -296,10 +291,7 @@ def report(inspection_path: Path):
             for schematisation in plan["schematisations"]:
                 md = schematisation.metadata
                 record = {
-                    "repository_slug": schematisation.slug,
-                    "sqlite_name": schematisation.sqlite_name,
-                    "settings_id": schematisation.settings_id,
-                    "settings_name": schematisation.settings_name,
+                    "name": schematisation.name,
                     "owner": plan["org_name"] or getattr(md, "owner", None),
                     "created": getattr(md, "created", None),
                     "last_update": schematisation.revisions[0].last_update,

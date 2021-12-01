@@ -6,6 +6,7 @@ from .repository import Repository
 from .repository import RepoSqlite
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
+from collections import defaultdict
 from typing import Dict
 from typing import List
 
@@ -20,10 +21,12 @@ def _unique_id(sqlite: RepoSqlite, settings: RepoSettings):
 
 
 def raster_lookup(repository: Repository, revision_nr: int, raster: Raster):
-    file = repository.get_file(revision_nr, raster.path)
+    revision, file = repository.get_file(revision_nr, raster.path)
     if file is None:
         return
-    return Raster(file.path, file.size, file.md5, raster_type=raster.raster_type)
+    return revision, Raster(
+        file.path, file.size, file.md5, raster_type=raster.raster_type
+    )
 
 
 def repository_to_schematisations(
@@ -42,63 +45,48 @@ def repository_to_schematisations(
         _metadata = None
 
     # schemas is a list of schematisations
-    schemas = []
+    combinations = defaultdict(list)
 
-    # keep track only of the unique (sqlite_path,settings_id) combinations of the
-    # previously processed (newer)
-    previous_rev = {}  # unique_id -> index into schemas
+    # partition into unique (sqlite_path, settings_id) combinations
     for revision in sorted(repository.revisions, key=lambda x: -x.revision_nr):
-        combinations = [
-            (sqlite, settings)
-            for sqlite in revision.sqlites
-            for settings in (sqlite.settings or [])
-        ]
+        for sqlite in revision.sqlites or []:
+            for settings in sqlite.settings or []:
+                key = (sqlite.sqlite_path, settings.settings_id)
+                combinations[key].append((revision, sqlite, settings))
 
-        # match settings-sqlite combinations with previous (newer) revision
-        unique_ids = [_unique_id(*x) for x in combinations]
-        targets = [previous_rev.pop(x, None) for x in unique_ids]
-        unmatched_ids = [x for (x, y) in zip(unique_ids, targets) if y is None]
-
-        # extra logic to fix incomplete matches:
-        if len(unmatched_ids) > 0:
-            # situation: 1 sqlite is renamed (still multiple settings allowed!)
-            n_unmatched_sqlites = len(set([x[0] for x in unmatched_ids]))
-            n_unmatched_sqlites_prev = len(set([x[0] for x in previous_rev.keys()]))
-            if n_unmatched_sqlites == 1 and n_unmatched_sqlites_prev == 1:
-                # rewrite 'previous_rev' keys to account for the rename
-                sqlite_name = unmatched_ids[0][0]
-                previous_rev = {
-                    (sqlite_name, k[1]): v for (k, v) in previous_rev.items()
-                }
-                # insert the new target ids
-                for i, unique_id in enumerate(unique_ids):
-                    if targets[i] is None:
-                        targets[i] = previous_rev.pop(unique_id, None)
-
-        # create schematisations if necessary
-        for i, (sqlite, settings) in enumerate(combinations):
-            if targets[i] is None:
-                schematisation = Schematisation(
-                    repo_slug=repository.slug,
-                    sqlite_name=str(sqlite.sqlite_path).split(".sqlite")[0],
-                    settings_id=settings.settings_id,
-                    settings_name=settings.settings_name,
-                    revisions=[],
-                    metadata=_metadata,
-                )
-                schemas.append(schematisation)
-                targets[i] = len(schemas) - 1
+    schemas = []
+    for _combinations in combinations.values():
+        _, last_sqlite, last_settings = _combinations[0]
+        schematisation = Schematisation(
+            repo_slug=repository.slug,
+            sqlite_name=str(last_sqlite.sqlite_path).split(".sqlite")[0],
+            settings_id=last_settings.settings_id,
+            settings_name=last_settings.settings_name,
+            revisions=[],
+            metadata=_metadata,
+        )
 
         # append the revision for each
-        for (sqlite, settings), target in zip(combinations, targets):
-            _sqlite = repository.get_file(revision.revision_nr, sqlite.sqlite_path)
-            if _sqlite is None:
+        for (revision, sqlite, settings) in _combinations:
+            sqlite_revision_nr, sqlite_file = repository.get_file(
+                revision.revision_nr, sqlite.sqlite_path
+            )
+            if sqlite_file is None:
                 raise FileNotFoundError(f"Sqlite {sqlite.sqlite_path} does not exist")
             rasters = [
                 raster_lookup(repository, revision.revision_nr, x)
                 for x in settings.rasters
             ]
-            schemas[target].revisions.append(
+            rasters = [x for x in rasters if x is not None]
+            if sqlite_revision_nr != revision.revision_nr and not any(
+                x[0] == revision.revision_nr for x in rasters
+            ):
+                logger.info(
+                    f"Skipped revision {revision.revision_nr} in schematisation '{schematisation.name}'."
+                )
+                continue
+
+            schematisation.revisions.append(
                 SchemaRevision(
                     sqlite_path=sqlite.sqlite_path,
                     settings_name=settings.settings_name,
@@ -107,13 +95,47 @@ def repository_to_schematisations(
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
                     commit_user=revision.commit_user,
-                    sqlite=_sqlite,
-                    rasters=[x for x in rasters if x is not None],
+                    sqlite=sqlite_file,
+                    rasters=[x[1] for x in rasters if x is not None],
                 )
             )
 
-        # update previous_rev
-        previous_rev = {uid: target for (uid, target) in zip(unique_ids, targets)}
+        if len(schematisation.revisions) == 0:
+            raise RuntimeError(f"Schematisation {schematisation.name} has 0 revisions!")
+        rev_nrs = [rev.revision_nr for rev in schematisation.revisions]
+        if len(rev_nrs) != len(set(rev_nrs)):
+            raise RuntimeError(
+                f"Schematisation {schematisation.name} has non-unique revisions!"
+            )
+
+        schemas.append(schematisation)
+
+    # fix sqlite rename events: for each revision range that ends, find a schematisation
+    # that starts directly after
+    to_delete = []
+    for schema_1 in schemas:
+        expected_first_nr = schema_1.revisions[0].revision_nr + 1
+        adjacent = []
+        for schema_2 in schemas:
+            if (
+                schema_2.revisions[-1].revision_nr == expected_first_nr
+                and schema_2.settings_id == schema_1.settings_id
+            ):
+                adjacent.append(schema_2)
+
+        if len(adjacent) != 1:
+            continue  # cannot merge if situation is ambiguous
+
+        schema_2 = adjacent[0]
+        schema_2.revisions.extend(schema_1.revisions)
+        to_delete.append(schema_1)
+    if len(to_delete) > 0:
+        schemas = [s for s in schemas if s not in to_delete]
+
+    # check schematisation name uniqueness
+    names = [s.name for s in schemas]
+    if len(names) != len(set(names)):
+        raise RuntimeError("Non-unique schematisation names!")
 
     # extract unique files
     files_in_schema = set()
@@ -141,11 +163,6 @@ def repository_to_schematisations(
         org_name = org_lut.get(_metadata.owner)
     else:
         org_name = None
-
-    # check schematisation name uniqueness
-    names = [s.name for s in schemas]
-    if len(names) != len(set(names)):
-        raise RuntimeError("Non-unique schematisation names!")
 
     return {
         "count": len(schemas),
