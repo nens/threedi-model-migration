@@ -1,7 +1,7 @@
+from copy import deepcopy
 from pathlib import Path
 from threedi_model_migration.file import RasterOptions
 
-import logging
 import pytest
 
 
@@ -63,6 +63,8 @@ def test_settings(repository_inspected):
 def test_inspect(repository_inspected):
     result = list(repository_inspected.inspect())
 
+    assert len(result) == 4
+
     # newest to oldest
     revision, sqlite, settings = result[0]
     assert revision.revision_nr == 1
@@ -80,6 +82,35 @@ def test_inspect(repository_inspected):
     assert revision.revision_nr == 0
     assert sqlite.sqlite_path.name == "db1.sqlite"
     assert settings.settings_id == 1
+
+
+def test_incremental_inspect(repository_inspected):
+    repository = deepcopy(repository_inspected)
+
+    # drop the last revision
+    repository.revisions = repository.revisions[1:]
+    revision_before = repository.revisions[0]
+
+    # redo the inspection
+    result = list(repository.inspect())
+
+    assert len(result) == 4
+
+    # newest to oldest
+    revision, sqlite, settings = result[0]
+    assert revision.revision_nr == 1
+    assert sqlite.sqlite_path.name == "db1.sqlite"
+    assert settings.settings_id == 1
+    revision, sqlite, settings = result[1]
+    assert revision.revision_nr == 1
+    assert sqlite.sqlite_path.name == "db2.sqlite"
+    assert settings.settings_id == 1
+    revision, sqlite, settings = result[2]
+    assert revision.revision_nr == 1
+    assert sqlite.sqlite_path.name == "db2.sqlite"
+    assert settings.settings_id == 2
+    revision, sqlite, settings = result[3]
+    assert revision is revision_before
 
 
 @pytest.mark.parametrize(
@@ -102,7 +133,5 @@ def test_get_file(revision_nr, path, repository_inspected):
         (1, "db3.sqlite"),
     ],
 )
-def test_get_file_not_found(revision_nr, path, repository_inspected, caplog):
-    caplog.set_level(logging.WARNING)
+def test_get_file_not_found(revision_nr, path, repository_inspected):
     assert repository_inspected.get_file(revision_nr, Path(path))[1] is None
-    assert len(caplog.record_tuples) == 1

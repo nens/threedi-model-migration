@@ -22,6 +22,16 @@ History
 - All schematisations with identical (repository, sqlite path, settings id) are
   grouped together now.
 
+- Added 'ifnewer' to the download method: only download the repo if the remote has a
+  newer revision present.
+
+- Added 'incremental' to inspect: only inspect revisions that were not previously
+  inspected.
+
+- Also look for raster files relative to the repo root (not only relative to the sqlite)
+
+- Don't trust the "last_update" field in modeldatabank; get it from mercurial instead.
+
 
 0.3.0 (2021-11-29)
 ------------------

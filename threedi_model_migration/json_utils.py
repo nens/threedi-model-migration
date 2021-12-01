@@ -12,6 +12,7 @@ from collections import OrderedDict
 import dataclasses
 import datetime
 import pathlib
+import typing
 import uuid
 
 
@@ -53,7 +54,7 @@ def custom_json_object_hook(dct):
         return dct
 
     kwargs = {}
-    for name, dtype in cls.__annotations__.items():
+    for name, dtype in typing.get_type_hints(cls).items():
         if name not in dct:
             continue
         value = dct[name]

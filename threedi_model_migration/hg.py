@@ -58,6 +58,10 @@ def pull(repo_path, remote):
     get_output(f"hg pull -v {remote}", cwd=repo_path)
 
 
+def identify_tip(remote):
+    return get_output(f"hg id -r tip {remote} -T {{node}}")
+
+
 def update(repo_path, revision_hash):
     try:
         get_output(f"hg update -v {revision_hash} -C -y", cwd=repo_path)

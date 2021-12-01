@@ -8,8 +8,12 @@ from .metadata import load_symlinks
 from .repository import DEFAULT_REMOTE
 from .repository import Repository
 from .schematisation import SchemaMeta
+from .schematisation import Schematisation
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
+from typing import Dict
+from typing import List
 from typing import Optional
 from typing import TextIO
 from uuid import UUID
@@ -23,6 +27,7 @@ import shutil
 
 logger = logging.getLogger(__name__)
 
+INSPECTION_RELPATH = "_inspection"
 
 INSPECT_CSV_FIELDNAMES = [
     "revision_nr",
@@ -34,13 +39,25 @@ INSPECT_CSV_FIELDNAMES = [
 ]
 
 
+class InspectMode(Enum):
+    always = "always"
+    incremental = "incremental"
+    if_necessary = "if-necessary"
+    never = "never"
+
+
+class RepositoryNotFound(FileNotFoundError):
+    pass
+
+
 def download(
     base_path: Path,
     slug: str,
     remote: str = DEFAULT_REMOTE,
     uuid: bool = False,
-    metadata_path: Optional[Path] = None,
+    metadata: Optional[Dict] = None,
     lfclear: bool = False,
+    ifnewer: bool = False,
 ):
     """Clone or pull a repository.
 
@@ -49,21 +66,27 @@ def download(
         slug: The name of the repository.
         remote: The remote URL (https://hg.lizard.net) or path.
         uuid: Whether to use a uuid as remote repository name (instead of 'name')
-        metadata_path: The path of a metadata file (models.lizard.net db dump)
+        metadata: Metadata (models.lizard.net dump)
+        ifnewer: First check the remote tip and only clone if it is newer
     """
-    repository = Repository(base_path, slug)
-    if uuid:
-        if not metadata_path:
-            raise ValueError("Please supply metadata_path")
-        metadata = load_modeldatabank(metadata_path)
-        remote_name = str(metadata[repository.slug].repo_uuid)
-    else:
-        remote_name = repository.slug
-
     if remote.endswith("/"):
         remote = remote[:-1]
 
-    repository.download(remote + "/" + remote_name, lfclear)
+    if uuid:
+        if metadata is None:
+            raise ValueError("Please supply metadata_path")
+        remote_name = str(metadata[slug].repo_uuid)
+    else:
+        remote_name = slug
+
+    if ifnewer:
+        with (base_path / INSPECTION_RELPATH / f"{slug}.json").open("r") as f:
+            repository = json.load(f, object_hook=custom_json_object_hook)
+        repository.base_path = base_path
+    else:
+        repository = Repository(base_path, slug)
+
+    return repository.download(remote + "/" + remote_name, ifnewer, lfclear)
 
 
 def delete(base_path: Path, slug: str):
@@ -77,10 +100,22 @@ def delete(base_path: Path, slug: str):
     repository.delete()
 
 
+def _needs_local_repo(base_path, slug, inspect_mode):
+    inspect_mode = InspectMode(inspect_mode)
+    inspection_file_path = base_path / INSPECTION_RELPATH / f"{slug}.json"
+
+    if inspect_mode in (InspectMode.always, InspectMode.incremental):
+        return True
+    if inspect_mode is InspectMode.if_necessary:
+        return not inspection_file_path.exists()
+    elif inspect_mode is InspectMode.never:
+        return False
+
+
 def inspect(
     base_path: Path,
-    inspection_path: Path,
     slug: str,
+    inspect_mode: InspectMode = InspectMode.always,
     last_update: Optional[datetime] = None,
     out: Optional[TextIO] = None,
 ):
@@ -88,12 +123,28 @@ def inspect(
 
     Args:
         base_path: A local working directory that contains the repository.
-        inspection_path: A local directory to write the inspection file into.
         slug: The name of the repository.
+        inspect_mode: Whether to inspect
         last_update: Only consider revisions starting on this date
         stdout: Optionally write progress to this stream.
     """
+    if not _needs_local_repo(base_path, slug, inspect_mode):
+        return
+
+    # Check if repository is present
     repository = Repository(base_path, slug)
+    if not repository.path.exists():
+        raise FileNotFoundError(f"Repository {slug} not present")
+
+    inspect_mode = InspectMode(inspect_mode)
+    inspection_file_path = base_path / INSPECTION_RELPATH / f"{slug}.json"
+
+    if inspect_mode is InspectMode.incremental:
+        with inspection_file_path.open("r") as f:
+            repository = json.load(f, object_hook=custom_json_object_hook)
+        repository.base_path = base_path
+    else:
+        repository = Repository(base_path, slug)
 
     if out is not None:
         writer = csv.DictWriter(out, fieldnames=INSPECT_CSV_FIELDNAMES)
@@ -110,8 +161,8 @@ def inspect(
         if out is not None:
             writer.writerow({x: record[x] for x in INSPECT_CSV_FIELDNAMES})
 
-    inspection_path.mkdir(exist_ok=True)
-    with (inspection_path / f"{repository.slug}.json").open("w") as f:
+    (base_path / INSPECTION_RELPATH).mkdir(exist_ok=True)
+    with (base_path / INSPECTION_RELPATH / f"{repository.slug}.json").open("w") as f:
         json.dump(
             repository,
             f,
@@ -121,7 +172,7 @@ def inspect(
 
 
 def plan(
-    inspection_path: Path,
+    base_path: Path,
     slug: str,
     metadata_path: Optional[Path] = None,
     inpy_path: Optional[Path] = None,
@@ -130,13 +181,13 @@ def plan(
     """Create a migration plan and write results to JSON.
 
     Args:
-        inspection_path: A local directory to read the inspection file and write the
-            migration file into.
+        base_path: A local working directory
         slug: The name of the repository.
         metadata_path: The path of a metadata file (models.lizard.net db dump)
         inpy_path: The path of an inpy metadata file (inpy db dump)
         quiet: Whether to print a summary.
     """
+    inspection_path = base_path / INSPECTION_RELPATH
     metadata = load_modeldatabank(metadata_path) if metadata_path else None
     inpy_data, org_lut = load_inpy(inpy_path) if inpy_path else (None, None)
 
@@ -152,7 +203,7 @@ def plan(
         for schematisation in result["schematisations"]:
             revisions = schematisation.revisions
             rev_rng = f"{revisions[-1].revision_nr}-{revisions[0].revision_nr}"
-            print(f"{schematisation.concat_name}: {rev_rng}")
+            print(f"{schematisation.name}: {rev_rng}")
 
         print(
             f"File count: {result['file_count']}, Estimated size: {result['file_size_mb']} MB"
@@ -169,7 +220,6 @@ def plan(
 
 def download_inspect_plan(
     base_path,
-    inspection_path,
     metadata,
     inpy_data,
     lfclear,
@@ -181,50 +231,33 @@ def download_inspect_plan(
     inspect_mode,
 ):
     repository = Repository(base_path, slug)
-    _inspection_path = inspection_path / f"{slug}.json"
+    inspect_mode = InspectMode(inspect_mode)
+    inspection_path = base_path / INSPECTION_RELPATH
 
-    # Download & Inspect if necessary
-    if inspect_mode == "always" or (
-        inspect_mode == "if-necessary" and not _inspection_path.exists()
-    ):
+    # Check if we need to download / pull & Inspect if necessary
+    if _needs_local_repo(base_path, slug, inspect_mode):
         logger.info(f"Downloading {slug}...")
-        # COPY FROM download
-        if uuid:
-            remote_name = str(metadata[repository.slug].repo_uuid)
-        else:
-            remote_name = repository.slug
+        needs_inspection = download(
+            base_path,
+            slug,
+            remote,
+            uuid,
+            metadata,
+            lfclear,
+            ifnewer=inspect_mode is InspectMode.incremental,
+        )
+        if needs_inspection:
+            logger.info(f"Inspecting {slug}...")
+            inspect(base_path, slug, inspect_mode, last_update)
 
-        if remote.endswith("/"):
-            remote = remote[:-1]
-
-        repository.download(remote + "/" + remote_name, lfclear)
-
-        # COPY FROM inspect
-        logger.info(f"Inspecting {slug}...")
-        for revision, sqlite, settings in repository.inspect(last_update):
-            record = {
-                **dataclasses.asdict(revision),
-                **dataclasses.asdict(sqlite),
-                **dataclasses.asdict(settings),
-            }
-            record.pop("sqlites")
-            record.pop("settings")
-
-        inspection_path.mkdir(exist_ok=True)
-        with _inspection_path.open("w") as f:
-            json.dump(
-                repository,
-                f,
-                indent=4,
-                default=custom_json_serializer,
-            )
-    elif _inspection_path.exists():
-        with _inspection_path.open("r") as f:
+    inspection_file_path = inspection_path / f"{slug}.json"
+    if inspection_file_path.exists():
+        with inspection_file_path.open("r") as f:
             repository = json.load(f, object_hook=custom_json_object_hook)
     else:
         return  # skip
 
-    # COPY FROM plan
+    # copy of application.plan()
     logger.info(f"Planning {slug}...")
     result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
@@ -237,8 +270,9 @@ def download_inspect_plan(
     logger.info(f"Done processing {slug}.")
 
 
-def report(inspection_path: Path):
+def report(base_path: Path):
     """Aggregate all plans into 1 repository and 1 schematisation CSV"""
+    inspection_path = base_path / INSPECTION_RELPATH
 
     REPOSITORY_CSV_FIELDNAMES = [
         "repository_slug",
@@ -274,12 +308,18 @@ def report(inspection_path: Path):
             with path.open("r") as f:
                 plan = json.load(f, object_hook=custom_json_object_hook)
 
+            schemas: List[Schematisation] = plan["schematisations"]
+            if len(schemas) > 0:
+                last_update = max(s.revisions[0].last_update for s in schemas)
+            else:
+                last_update = None
+
             metadata: SchemaMeta = plan["repository_meta"]
             record = {
                 "repository_slug": plan["repository_slug"],
                 "owner": plan["org_name"] or getattr(metadata, "owner", None),
                 "created": getattr(metadata, "created", None),
-                "last_update": getattr(metadata, "last_update", None),
+                "last_update": last_update,
                 "schematisation_count": plan["count"],
                 "file_count": plan["file_count"],
                 "file_size_mb": plan["file_size_mb"],
@@ -288,7 +328,7 @@ def report(inspection_path: Path):
             }
 
             writer1.writerow(record)
-            for schematisation in plan["schematisations"]:
+            for schematisation in schemas:
                 md = schematisation.metadata
                 record = {
                     "name": schematisation.name,
@@ -303,12 +343,13 @@ def report(inspection_path: Path):
 
 
 def patch_uuids(
-    inspection_path: Path,
+    base_path: Path,
     symlinks_path: Path,
     metadata_path: Optional[Path],
     inpy_path: Optional[Path],
 ):
     """Patch inspection data (repositories and plans) that have a UUID as slug."""
+    inspection_path = base_path / INSPECTION_RELPATH
     symlinks = load_symlinks(symlinks_path)
     metadata = load_modeldatabank(metadata_path) if metadata_path else None
     inpy_data, org_lut = load_inpy(inpy_path) if inpy_path else (None, None)

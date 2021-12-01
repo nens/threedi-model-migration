@@ -35,7 +35,6 @@ class SchemaMeta:
     owner: str
     created: datetime
     created_by: str
-    last_update: datetime
 
     meta: Dict[str, str]
 
@@ -85,17 +84,12 @@ class SchemaMeta:
 
         # parse datetimes:
         created = datetime.fromisoformat(fields["created"])
-        if fields["last_repo_update"] is not None:
-            last_update = datetime.fromisoformat(fields["last_repo_update"])
-        else:
-            last_update = created
         return cls(
             name=fields["identifier"],
             slug=fields["slug"],
             repo_uuid=UUID(fields["uuid"]),
             owner=fields["organisation"][0],
             created=TIMEZONE.localize(created),
-            last_update=TIMEZONE.localize(last_update),
             created_by=fields["owner"][0],
             meta=meta,
         )
