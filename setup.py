@@ -10,7 +10,7 @@ with open('CHANGES.rst') as history_file:
 
 requirements = ['Click>=7.0', 'mercurial', 'pytz']
 
-test_requirements = ['pytest>=3',  ]
+test_requirements = ['pytest>=3',  'factory_boy']
 
 setup(
     author="Casper van der Wel",
