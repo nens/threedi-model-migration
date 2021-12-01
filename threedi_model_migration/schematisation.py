@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import List
 from typing import Optional
 from typing import Set
-from typing import Union
 
 
 __all__ = ["Schematisation", "SchemaRevision"]
@@ -35,24 +34,27 @@ class SchemaRevision:
 
 @dataclass
 class Schematisation:
-    slug: str  # matches repository slug
+    repo_slug: str
     sqlite_name: str  # the newest of its revisions
     settings_id: int
     settings_name: str  # the newest of its revisions
     metadata: Optional[SchemaMeta] = None
     revisions: Optional[List[SchemaRevision]] = None
 
-    @property
-    def concat_name(self):
-        return f"{self.slug}-{self.sqlite_name}-{self.settings_name}"
+    name: str = None  # max 256 characters, unique within org, generated here
 
-    def get_files(self) -> Set[Union[File, Raster]]:
+    def __post_init__(self):
+        self.name = f"{self.repo_slug} - {self.sqlite_name} - {self.settings_id} {self.settings_name}"[
+            :256
+        ]
+
+    def get_files(self) -> Set[File]:
         result = set()
         for revision in self.revisions:
             if revision.sqlite is not None:
                 result.add(revision.sqlite)
             for raster in revision.rasters:
-                result.add(raster)
+                result.add(raster.as_file())
 
         return result
 
