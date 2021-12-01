@@ -8,10 +8,12 @@ from .metadata import load_symlinks
 from .repository import DEFAULT_REMOTE
 from .repository import Repository
 from .schematisation import SchemaMeta
+from .schematisation import Schematisation
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict
+from typing import List
 from typing import Optional
 from typing import TextIO
 from uuid import UUID
@@ -104,7 +106,7 @@ def _needs_local_repo(base_path, slug, inspect_mode):
 
     if inspect_mode in (InspectMode.always, InspectMode.incremental):
         return True
-    if inspect_mode in (InspectMode.if_necessary):
+    if inspect_mode is InspectMode.if_necessary:
         return not inspection_file_path.exists()
     elif inspect_mode is InspectMode.never:
         return False
@@ -306,12 +308,18 @@ def report(base_path: Path):
             with path.open("r") as f:
                 plan = json.load(f, object_hook=custom_json_object_hook)
 
+            schemas: List[Schematisation] = plan["schematisations"]
+            if len(schemas) > 0:
+                last_update = max(s.revisions[0].last_update for s in schemas)
+            else:
+                last_update = None
+
             metadata: SchemaMeta = plan["repository_meta"]
             record = {
                 "repository_slug": plan["repository_slug"],
                 "owner": plan["org_name"] or getattr(metadata, "owner", None),
                 "created": getattr(metadata, "created", None),
-                "last_update": getattr(metadata, "last_update", None),
+                "last_update": last_update,
                 "schematisation_count": plan["count"],
                 "file_count": plan["file_count"],
                 "file_size_mb": plan["file_size_mb"],
@@ -320,7 +328,7 @@ def report(base_path: Path):
             }
 
             writer1.writerow(record)
-            for schematisation in plan["schematisations"]:
+            for schematisation in schemas:
                 md = schematisation.metadata
                 record = {
                     "name": schematisation.name,

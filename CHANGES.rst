@@ -30,6 +30,8 @@ History
 
 - Also look for raster files relative to the repo root (not only relative to the sqlite)
 
+- Don't trust the "last_update" field in modeldatabank; get it from mercurial instead.
+
 
 0.3.0 (2021-11-29)
 ------------------

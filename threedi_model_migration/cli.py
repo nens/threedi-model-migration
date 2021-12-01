@@ -249,9 +249,7 @@ def batch(
         inpy_data = org_lut = None
 
     # sort newest first
-    sorted_metadata = sorted(
-        metadata.values(), key=lambda x: x.last_update, reverse=True
-    )
+    sorted_metadata = sorted(metadata.values(), key=lambda x: x.created, reverse=True)
 
     for _metadata in sorted_metadata:
         slug = _metadata.slug

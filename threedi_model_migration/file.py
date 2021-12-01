@@ -82,22 +82,22 @@ class File:
         self.md5, self.size = compute_md5(base_path / self.path)
         self.size = int(self.size / SQLITE_COMPRESSION_RATIO)
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({str(self.path)})"
+
     def __hash__(self):
         return int(self.md5, 16)
 
 
 @dataclasses.dataclass
-class Raster:
-    path: Path
-    size: Optional[int] = None  # in bytes
-    md5: Optional[str] = None
+class Raster(File):
     raster_type: RasterOptions = None
 
     def compute_md5(self, base_path: Path):
         self.md5, self.size = compute_md5(base_path / self.path)
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({str(self.path)})"
+
     def as_file(self) -> File:
         return File(path=self.path, size=self.size, md5=self.md5)
-
-    def __hash__(self):
-        return int(self.md5, 16)
