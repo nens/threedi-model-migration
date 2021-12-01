@@ -238,3 +238,4 @@ class Repository:
                     return revision.revision_nr, file
 
         logger.warning(f"File with path {path} not found.")
+        return None, None

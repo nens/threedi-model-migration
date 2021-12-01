@@ -96,5 +96,8 @@ class Raster:
     def compute_md5(self, base_path: Path):
         self.md5, self.size = compute_md5(base_path / self.path)
 
+    def as_file(self) -> File:
+        return File(path=self.path, size=self.size, md5=self.md5)
+
     def __hash__(self):
         return int(self.md5, 16)

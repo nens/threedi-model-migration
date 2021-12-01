@@ -12,6 +12,10 @@ History
 - Removed off-by-one in revision_nr. Now the original mercurial numbers are taken and
   not the ones from models.lizard.net (which are + 1).
 
+- Added schematisation name (incl. uniqueness check).
+
+- Added "files_omitted" attribute to schematisation plans.
+
 
 0.3.0 (2021-11-29)
 ------------------
