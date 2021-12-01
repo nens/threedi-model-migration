@@ -19,6 +19,7 @@ import dataclasses
 import json
 import logging
 import shutil
+from enum import Enum
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,12 @@ INSPECT_CSV_FIELDNAMES = [
     "settings_id",
     "settings_name",
 ]
+
+class InspectMode(Enum):
+    always = "always"
+    incremental = "incremental"
+    if_necessary = "if-necessary"
+    never = "never"
 
 
 def download(
@@ -81,6 +88,7 @@ def inspect(
     base_path: Path,
     inspection_path: Path,
     slug: str,
+    inspect_mode: InspectMode = InspectMode.always,
     last_update: Optional[datetime] = None,
     out: Optional[TextIO] = None,
 ):
@@ -90,10 +98,27 @@ def inspect(
         base_path: A local working directory that contains the repository.
         inspection_path: A local directory to write the inspection file into.
         slug: The name of the repository.
+        inspect_mode: Whether to inspect
         last_update: Only consider revisions starting on this date
         stdout: Optionally write progress to this stream.
     """
     repository = Repository(base_path, slug)
+    inspect_mode = InspectMode(inspect_mode)
+    inspection_file_path = inspection_path / f"{repository.slug}.json"
+
+    if inspect_mode is InspectMode.if_necessary:
+        if inspection_file_path.exists():
+            return
+    elif inspect_mode is InspectMode.incremental:
+        if inspection_file_path.exists():
+            with inspection_file_path.open("r") as f:
+                repository = json.load(
+                    f,
+                    indent=4,
+                    default=custom_json_serializer,
+                )
+    elif inspect_mode is InspectMode.never:
+        return
 
     if out is not None:
         writer = csv.DictWriter(out, fieldnames=INSPECT_CSV_FIELDNAMES)
@@ -182,6 +207,7 @@ def download_inspect_plan(
 ):
     repository = Repository(base_path, slug)
     _inspection_path = inspection_path / f"{slug}.json"
+    inspect_mode = InspectMode(inspect_mode)
 
     # Download & Inspect if necessary
     if inspect_mode == "always" or (

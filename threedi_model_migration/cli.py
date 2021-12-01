@@ -117,6 +117,12 @@ def delete(ctx, slug):
     type=str,
 )
 @click.option(
+    "-i",
+    "--inspect_mode",
+    type=click.Choice([x.value for x in application.InspectMode], case_sensitive=False),
+    help="Controls whether the heavy clone & inspect tasks are done",
+)
+@click.option(
     "-l",
     "--last_update",
     type=click.DateTime(formats=["%Y-%m-%d"]),
@@ -129,16 +135,19 @@ def delete(ctx, slug):
     default=False,
 )
 @click.pass_context
-def inspect(ctx, slug, last_update, quiet):
+def inspect(ctx, slug, inspect_mode, last_update, quiet):
     """Inspects revisions, sqlites, and global settings in a repository"""
+    if not quiet:
+        out = click.get_text_stream("stdout", errors="surrogateescape")
+    else:
+        out = None
     application.inspect(
         ctx.obj["base_path"],
         ctx.obj["inspection_path"],
         slug,
+        inspect_mode,
         last_update,
-        click.get_text_stream("stdout", errors="surrogateescape")
-        if not quiet
-        else None,
+        out,
     )
 
 
@@ -189,7 +198,7 @@ def plan(ctx, slug, quiet):
 @click.option(
     "-i",
     "--inspect_mode",
-    type=click.Choice(["never", "if-necessary", "always"], case_sensitive=False),
+    type=click.Choice([x.value for x in application.InspectMode], case_sensitive=False),
     help="Controls whether the heavy clone & inspect tasks are done",
 )
 @click.option(
