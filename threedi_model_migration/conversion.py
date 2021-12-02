@@ -141,10 +141,10 @@ def repository_to_schematisations(
     if len(to_delete) > 0:
         schemas = [s for s in schemas if s not in to_delete]
 
-    # check schematisation name uniqueness
-    names = [s.name for s in schemas]
-    if len(names) != len(set(names)):
-        raise RuntimeError("Non-unique schematisation names!")
+    # check schematisation slug uniqueness
+    slugs = [s.slug for s in schemas]
+    if len(slugs) != len(set(slugs)):
+        raise RuntimeError("Non-unique schematisation slugs!")
 
     # extract unique files
     files_in_schema = set()

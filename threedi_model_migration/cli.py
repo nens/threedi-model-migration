@@ -286,6 +286,28 @@ def report(ctx):
 
 @main.command()
 @click.argument(
+    "slug",
+    type=str,
+)
+@click.option(
+    "-e",
+    "--env_file",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An env file containing API host, user, password",
+)
+@click.option(
+    "-q/-nq",
+    "--quiet/--not-quiet",
+    type=bool,
+    default=False,
+)
+def push(ctx, slug, env_file, quiet):
+    """Push a complete repository to the API"""
+    application.push(ctx.obj["base_path"], slug, env_file)
+
+
+@main.command()
+@click.argument(
     "symlinks_path",
     type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
     required=True,

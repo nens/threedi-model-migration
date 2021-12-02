@@ -1,4 +1,5 @@
 """Main module."""
+from . import api_utils
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
@@ -12,6 +13,8 @@ from .schematisation import Schematisation
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from threedi_api_client import ThreediApi
+from threedi_api_client.openapi import V3BetaApi
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -340,6 +343,34 @@ def report(base_path: Path):
                     "last_rev_nr": schematisation.revisions[0].revision_nr,
                 }
                 writer2.writerow(record)
+
+
+def push(base_path: Path, slug: str, env_file: Optional[Path] = None):
+    """Aggregate all plans into 1 repository and 1 schematisation CSV"""
+    repository = Repository(base_path, slug)
+    if not repository.path.exists():
+        raise FileNotFoundError(
+            f"{repository} does not exist locally, please download it first."
+        )
+
+    inspection_path = base_path / INSPECTION_RELPATH / f"{slug}.plan.json"
+    with inspection_path.open("r") as f:
+        plan = json.load(f, object_hook=custom_json_object_hook)
+
+    schematisations: List[Schematisation] = plan["schematisations"]
+    with ThreediApi(env_file=env_file, version="v3-beta", asynchronous=False) as api:
+        api: V3BetaApi = api
+        for schematisation in schematisations:
+            sid, _ = api_utils.get_or_create_schematisation(api, schematisation)
+            for revision in schematisation.revisions:  # new to old
+                rid, created = api_utils.get_or_create_revision(api, sid, revision)
+                if not created:
+                    continue
+                repository.checkout(revision.revision_hash)
+                api_utils.upload_sqlite(api, rid, sid, repository.path, revision.sqlite)
+                for raster in revision.rasters:
+                    api_utils.upload_raster(api, rid, sid, repository.path, raster)
+                api_utils.commit_revision(api, rid, sid, revision)
 
 
 def patch_uuids(
