@@ -231,6 +231,7 @@ def download_inspect_plan(
     base_path,
     metadata,
     inpy_data,
+    env_file,
     lfclear,
     org_lut,
     slug,
@@ -238,13 +239,14 @@ def download_inspect_plan(
     uuid,
     last_update,
     inspect_mode,
+    do_push,
 ):
     repository = Repository(base_path, slug)
-    inspect_mode = InspectMode(inspect_mode)
+    inspect_mode = InspectMode(inspect_mode or "always")
     inspection_path = base_path / INSPECTION_RELPATH
 
     # Check if we need to download / pull & Inspect if necessary
-    if _needs_local_repo(base_path, slug, inspect_mode):
+    if do_push or _needs_local_repo(base_path, slug, inspect_mode):
         logger.info(f"Downloading {slug}...")
         needs_inspection = download(
             base_path,
@@ -276,6 +278,10 @@ def download_inspect_plan(
             indent=4,
             default=custom_json_serializer,
         )
+
+    if do_push:
+        push(base_path, slug, PushMode.incremental if inspect_mode is InspectMode.incremental else PushMode.full, env_file=env_file, last_update=last_update)
+        
     logger.info(f"Done processing {slug}.")
 
 
@@ -387,6 +393,7 @@ def push(
             oa_schema, created = api_utils.get_or_create_schematisation(
                 api, schematisation, overwrite=(mode == PushMode.overwrite)
             )
+            logger.info(f"Got schematisation with pk='{oa_schema.id}'.")
 
             if mode == PushMode.incremental and not created:
                 latest_rev = api_utils.get_latest_revision(api, oa_schema.id, revisions)
@@ -403,8 +410,8 @@ def push(
                         continue
                     else:
                         raise RuntimeError(
-                            "Can't push revision {revision.number} as there already "
-                            "is a commit with that number."
+                            f"Can't push revision {revision.revision_nr} as there "
+                            f"already is a commit with that number."
                         )
 
                 repository.checkout(revision.revision_hash)

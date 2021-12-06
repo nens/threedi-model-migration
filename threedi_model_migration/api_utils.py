@@ -31,15 +31,15 @@ logger = logging.getLogger(__name__)
 def get_or_create_schematisation(
     api: V3BetaApi, schematisation: Schematisation, overwrite: bool = False
 ) -> OASchematisation:
-    resp = api.schematisations_list(slug=schematisation.slug)
+    resp = api.schematisations_list(name=schematisation.name, owner__unique_id=schematisation.metadata.owner)
     if resp.count == 1 and not overwrite:
         logger.info(
-            f"Schematisation '{schematisation.slug}' already exists, skipping creation."
+            f"Schematisation '{schematisation.name}' already exists, skipping creation."
         )
         return resp.results[0], False
     elif resp.count == 1 and overwrite:
         logger.info(
-            f"Schematisation '{schematisation.slug}' already exists, deleting..."
+            f"Schematisation '{schematisation.name}' already exists, deleting..."
         )
         delete_schematisation(api, resp.results[0].id)
 
@@ -47,7 +47,6 @@ def get_or_create_schematisation(
     obj = OASchematisation(
         owner=schematisation.metadata.owner,
         name=schematisation.name,
-        slug=schematisation.slug,
         tags=[],
         meta=schematisation.metadata.meta,
         created_by=schematisation.metadata.created_by,

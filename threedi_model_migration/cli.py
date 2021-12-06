@@ -35,6 +35,12 @@ logger = logging.getLogger(__name__)
     help="An optional path to a database dump of inpy",
 )
 @click.option(
+    "-e",
+    "--env_file",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An env file containing API host, user, password",
+)
+@click.option(
     "--lfclear",
     type=bool,
     default=False,
@@ -48,12 +54,13 @@ logger = logging.getLogger(__name__)
     help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
 )
 @click.pass_context
-def main(ctx, base_path, metadata_path, inpy_path, lfclear, verbosity):
+def main(ctx, base_path, metadata_path, inpy_path, env_file, lfclear, verbosity):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
     ctx.obj["base_path"] = base_path
     ctx.obj["metadata_path"] = metadata_path
     ctx.obj["inpy_path"] = inpy_path
+    ctx.obj["env_file"] = env_file
     ctx.obj["lfclear"] = lfclear
 
     # setup logging
@@ -214,6 +221,12 @@ def plan(ctx, slug, quiet):
     help="Controls whether the heavy clone & inspect tasks are done",
 )
 @click.option(
+    "-push/-np",
+    "--push/--no-push",
+    type=bool,
+    default=False,
+)
+@click.option(
     "-I",
     "--include",
     type=str,
@@ -235,11 +248,12 @@ def plan(ctx, slug, quiet):
 )
 @click.pass_context
 def batch(
-    ctx, remote, uuid, last_update, inspect_mode, include, exclude, owner_blacklist_path
+    ctx, remote, uuid, last_update, inspect_mode, push, include, exclude, owner_blacklist_path
 ):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
     lfclear = ctx.obj["lfclear"]
+    env_file = ctx.obj["env_file"]
     if not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
     metadata = load_modeldatabank(ctx.obj["metadata_path"], owner_blacklist_path)
@@ -262,6 +276,7 @@ def batch(
                 base_path,
                 metadata,
                 inpy_data,
+                env_file,
                 lfclear,
                 org_lut,
                 slug,
@@ -269,6 +284,7 @@ def batch(
                 uuid,
                 last_update,
                 inspect_mode,
+                push,
             )
         except Exception as e:
             logger.exception(f"Could not process {_metadata.slug}: {e}")
@@ -290,12 +306,6 @@ def report(ctx):
     type=str,
 )
 @click.option(
-    "-e",
-    "--env_file",
-    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
-    help="An env file containing API host, user, password",
-)
-@click.option(
     "-m",
     "--mode",
     type=click.Choice([x.value for x in application.PushMode], case_sensitive=False),
@@ -308,9 +318,9 @@ def report(ctx):
     help="Revisions older than this are not pushed",
 )
 @click.pass_context
-def push(ctx, slug, env_file, mode, last_update):
+def push(ctx, slug, mode, last_update):
     """Push a complete repository to the API"""
-    application.push(ctx.obj["base_path"], slug, mode, env_file, last_update)
+    application.push(ctx.obj["base_path"], slug, mode, ctx.obj["env_file"], last_update)
 
 
 @main.command()
