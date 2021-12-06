@@ -49,6 +49,12 @@ class InspectMode(Enum):
     never = "never"
 
 
+class PushMode(Enum):
+    full = "full"
+    overwrite = "overwrite"
+    incremental = "incremental"
+
+
 class RepositoryNotFound(FileNotFoundError):
     pass
 
@@ -345,8 +351,14 @@ def report(base_path: Path):
                 writer2.writerow(record)
 
 
-def push(base_path: Path, slug: str, env_file: Optional[Path] = None):
+def push(
+    base_path: Path,
+    slug: str,
+    mode: PushMode = PushMode.incremental,
+    env_file: Optional[Path] = None,
+):
     """Aggregate all plans into 1 repository and 1 schematisation CSV"""
+    mode = PushMode(mode)
     repository = Repository(base_path, slug)
     if not repository.path.exists():
         raise FileNotFoundError(
@@ -361,16 +373,39 @@ def push(base_path: Path, slug: str, env_file: Optional[Path] = None):
     with ThreediApi(env_file=env_file, version="v3-beta", asynchronous=False) as api:
         api: V3BetaApi = api
         for schematisation in schematisations:
-            sid, _ = api_utils.get_or_create_schematisation(api, schematisation)
-            for revision in schematisation.revisions:  # new to old
-                rid, created = api_utils.get_or_create_revision(api, sid, revision)
+            oa_schema, created = api_utils.get_or_create_schematisation(
+                api, schematisation, overwrite=(mode == PushMode.overwrite)
+            )
+
+            revisions = schematisation.revisions
+            if mode == PushMode.incremental and not created:
+                latest_rev = api_utils.get_latest_revision(api, oa_schema.id, revisions)
+                revisions = [x for x in revisions if x.number > latest_rev]
+
+            for revision in sorted(revisions, key=lambda x: x.revision_nr):
+                oa_rev, created = api_utils.get_or_create_revision(
+                    api, oa_schema.id, revision
+                )
                 if not created:
-                    continue
+                    # There is apparently already a committed rev with this id.
+                    # Check the commit_date to see if they are actually the same.
+                    if oa_rev.commit_date == revision.last_update:
+                        continue
+                    else:
+                        raise RuntimeError(
+                            "Can't push revision {revision.number} as there already "
+                            "is a commit with that number."
+                        )
+
                 repository.checkout(revision.revision_hash)
-                api_utils.upload_sqlite(api, rid, sid, repository.path, revision.sqlite)
+                api_utils.upload_sqlite(
+                    api, oa_rev.id, oa_schema.id, repository.path, revision.sqlite
+                )
                 for raster in revision.rasters:
-                    api_utils.upload_raster(api, rid, sid, repository.path, raster)
-                api_utils.commit_revision(api, rid, sid, revision)
+                    api_utils.upload_raster(
+                        api, oa_rev.id, oa_schema.id, repository.path, raster
+                    )
+                api_utils.commit_revision(api, oa_rev.id, oa_schema.id, revision)
 
 
 def patch_uuids(

@@ -8,6 +8,7 @@ from tempfile import SpooledTemporaryFile
 from threedi_api_client.files import upload_file
 from threedi_api_client.files import upload_fileobj
 from threedi_api_client.openapi import Commit as OACommit
+from threedi_api_client.openapi import CreateRevision as OACreateRevision
 from threedi_api_client.openapi import RasterCreate as OARaster
 from threedi_api_client.openapi import Schematisation as OASchematisation
 from threedi_api_client.openapi import SchematisationRevision as OARevision
@@ -15,19 +16,26 @@ from threedi_api_client.openapi import SqliteFileUpload as OASqlite
 from threedi_api_client.openapi import Upload as OAUpload
 from threedi_api_client.openapi import V3BetaApi
 from threedi_api_client.openapi.exceptions import ApiException
+from typing import List
+from typing import Optional
 
 import json
 import logging
+import time
 import zipfile
 
 
 logger = logging.getLogger(__name__)
 
 
-def get_or_create_schematisation(api: V3BetaApi, schematisation: Schematisation) -> int:
+def get_or_create_schematisation(
+    api: V3BetaApi, schematisation: Schematisation, overwrite: bool = False
+) -> OASchematisation:
     resp = api.schematisations_list(slug=schematisation.slug)
-    if resp.count == 1:
-        return resp.results[0].id, False
+    if resp.count == 1 and not overwrite:
+        return resp.results[0], False
+    elif resp.count == 1 and overwrite:
+        delete_schematisation(api, resp.results[0].id)
 
     obj = OASchematisation(
         owner=schematisation.metadata.owner,
@@ -50,23 +58,87 @@ def get_or_create_schematisation(api: V3BetaApi, schematisation: Schematisation)
                     continue  # try again
             raise e
         break
-    return resp.id, True
+    return resp, True
+
+
+def delete_schematisation(api: V3BetaApi, schema_id: int):
+    # first delete the revisions
+    while True:
+        resp = api.schematisations_revisions_list(schema_id)
+        if len(resp.results) == 0:
+            break
+
+        for oa_revision in resp.results:
+            api.schematisations_revisions_delete(
+                oa_revision.id, schema_id, {"number": oa_revision.number}
+            )
+            if oa_revision.archived is None:
+                api.schematisations_revisions_delete(
+                    oa_revision.id, schema_id, {"number": oa_revision.number}
+                )
+
+    # then the schematisation
+    api.schematisations_delete(schema_id)
+
+
+def _match_revision(
+    oa_revision: OARevision, revisions: List[SchemaRevision]
+) -> SchemaRevision:
+    """Match an external (OpenAPI) revision with an internal (SchemaRevision)
+
+    The revision with the same number is returned. The commit date is
+    also compared.
+
+    Revisions should be sorted new to old ('revision_nr' descending)
+    """
+    for revision in revisions:
+        if oa_revision.number < revision.revision_nr:
+            break
+        elif oa_revision.number > revision.revision_nr:
+            continue
+        if oa_revision.commit_date == revision.last_update:
+            return revision
+        else:
+            break
+
+
+def get_latest_revision(
+    api: V3BetaApi, schema_id: int, revisions=List[SchemaRevision]
+) -> Optional[OARevision]:
+    offset = 0
+    while True:
+        resp = api.schematisations_revisions_list(
+            schema_id, committed=True, limit=10, offset=offset
+        )
+
+        for oa_revision in resp.results:
+            latest_revision = _match_revision(oa_revision, revisions)
+            if latest_revision is not None:
+                break
+
+        if len(resp.results) == 0 or latest_revision is not None:
+            break
+
+        offset += 10
+
+    return latest_revision
 
 
 def get_or_create_revision(
     api: V3BetaApi, schema_id: int, revision: SchemaRevision
-) -> int:
+) -> OARevision:
     resp = api.schematisations_revisions_list(
         schema_id, number=revision.revision_nr, committed=True
     )
     if resp.count == 1:
-        return resp.results[0].id, False
+        return resp.results[0], False
 
-    obj = OARevision(
+    obj = OACreateRevision(
+        empty=True,
         number=revision.revision_nr,
     )
     resp = api.schematisations_revisions_create(schema_id, obj)
-    return resp.id, True
+    return resp, True
 
 
 def upload_sqlite(
@@ -78,7 +150,7 @@ def upload_sqlite(
     )
     upload = api.schematisations_revisions_sqlite_upload(rev_id, schema_id, obj)
 
-    # mode = write/read bytes
+    # Sqlite files are zipped
     with SpooledTemporaryFile(mode="w+b") as f:
         with zipfile.ZipFile(f, "x") as zip_file:
             zip_file.write((repo_path / sqlite.path).as_posix(), sqlite.path.name)
@@ -101,7 +173,7 @@ def upload_raster(
         type=raster_type,
     )
     resp = api.schematisations_revisions_rasters_create(rev_id, schema_id, obj)
-    if resp.file.state == "uploaded":
+    if resp.file and resp.file.state == "uploaded":
         return
 
     obj = OAUpload(
@@ -111,14 +183,23 @@ def upload_raster(
         resp.id, rev_id, schema_id, obj
     )
 
-    upload_file(upload.put_url, raster.path)
+    upload_file(upload.put_url, repo_path / raster.path)
 
 
 def commit_revision(
     api: V3BetaApi, rev_id: int, schema_id: int, revision: SchemaRevision
 ):
+    # First wait for all files to have turned to 'uploaded'
+    for wait_time in [0.5, 1.0, 2.0, 10.0]:
+        oa_revision = api.schematisations_revisions_read(rev_id, schema_id)
+        if oa_revision.sqlite.file.state == "uploaded" and all(
+            raster.file.state == "uploaded" for raster in oa_revision.rasters
+        ):
+            break
+        time.sleep(wait_time)
+
     obj = OACommit(
-        commit_message=revision.commit_msg,
+        commit_message=revision.commit_msg[:512],
         commit_date=revision.last_update,
         user=revision.commit_user,
     )
