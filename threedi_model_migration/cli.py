@@ -296,14 +296,21 @@ def report(ctx):
     help="An env file containing API host, user, password",
 )
 @click.option(
-    "-q/-nq",
-    "--quiet/--not-quiet",
-    type=bool,
-    default=False,
+    "-m",
+    "--mode",
+    type=click.Choice([x.value for x in application.PushMode], case_sensitive=False),
+    help="Controls which revisions are pushed",
 )
-def push(ctx, slug, env_file, quiet):
+@click.option(
+    "-l",
+    "--last_update",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Revisions older than this are not pushed",
+)
+@click.pass_context
+def push(ctx, slug, env_file, mode, last_update):
     """Push a complete repository to the API"""
-    application.push(ctx.obj["base_path"], slug, env_file)
+    application.push(ctx.obj["base_path"], slug, mode, env_file, last_update)
 
 
 @main.command()

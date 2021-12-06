@@ -33,10 +33,17 @@ def get_or_create_schematisation(
 ) -> OASchematisation:
     resp = api.schematisations_list(slug=schematisation.slug)
     if resp.count == 1 and not overwrite:
+        logger.info(
+            f"Schematisation '{schematisation.slug}' already exists, skipping creation."
+        )
         return resp.results[0], False
     elif resp.count == 1 and overwrite:
+        logger.info(
+            f"Schematisation '{schematisation.slug}' already exists, deleting..."
+        )
         delete_schematisation(api, resp.results[0].id)
 
+    logger.info(f"Creating schematisation '{schematisation.slug}'...")
     obj = OASchematisation(
         owner=schematisation.metadata.owner,
         name=schematisation.name,
@@ -105,6 +112,8 @@ def _match_revision(
 def get_latest_revision(
     api: V3BetaApi, schema_id: int, revisions=List[SchemaRevision]
 ) -> Optional[OARevision]:
+    logger.info("Getting the latest revision...")
+
     offset = 0
     while True:
         resp = api.schematisations_revisions_list(
@@ -121,6 +130,7 @@ def get_latest_revision(
 
         offset += 10
 
+    logger.info(f"The latest revision number is {latest_revision.revision_nr}...")
     return latest_revision
 
 
@@ -131,8 +141,10 @@ def get_or_create_revision(
         schema_id, number=revision.revision_nr, committed=True
     )
     if resp.count == 1:
+        logger.info(f"Revision {revision.revision_nr} is already present, skipping.")
         return resp.results[0], False
 
+    logger.info(f"Creating revision {revision.revision_nr}...")
     obj = OACreateRevision(
         empty=True,
         number=revision.revision_nr,
@@ -144,6 +156,7 @@ def get_or_create_revision(
 def upload_sqlite(
     api: V3BetaApi, rev_id: int, schema_id: int, repo_path: Path, sqlite: File
 ):
+    logger.info(f"Creating and uploading {str(sqlite.path)}...")
     obj = OASqlite(
         filename=sqlite.path.stem + ".zip",
         md5sum=sqlite.md5,
@@ -167,6 +180,7 @@ def upload_raster(
         raster_type = "dem_raw_file"
     else:
         raster_type = raster_type.value
+    logger.info(f"Creating '{raster_type}' raster...")
     obj = OARaster(
         name=raster.path.name,
         md5sum=raster.md5,
@@ -174,8 +188,10 @@ def upload_raster(
     )
     resp = api.schematisations_revisions_rasters_create(rev_id, schema_id, obj)
     if resp.file and resp.file.state == "uploaded":
+        logger.info(f"Raster '{str(raster.path)}' already existed, skipping upload.")
         return
 
+    logger.info(f"Uploading '{str(raster.path)}'...")
     obj = OAUpload(
         filename=raster.path.name,
     )
@@ -196,6 +212,9 @@ def commit_revision(
             raster.file.state == "uploaded" for raster in oa_revision.rasters
         ):
             break
+        logger.info(
+            f"Sleeping {wait_time} seconds to wait for the files to become 'uploaded'..."
+        )
         time.sleep(wait_time)
 
     obj = OACommit(
@@ -203,4 +222,5 @@ def commit_revision(
         commit_date=revision.last_update,
         user=revision.commit_user,
     )
-    return api.schematisations_revisions_commit(rev_id, schema_id, obj)
+    api.schematisations_revisions_commit(rev_id, schema_id, obj)
+    logger.info(f"Committed revision {revision.revision_nr}.")

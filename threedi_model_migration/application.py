@@ -356,6 +356,7 @@ def push(
     slug: str,
     mode: PushMode = PushMode.incremental,
     env_file: Optional[Path] = None,
+    last_update: Optional[datetime] = None,
 ):
     """Aggregate all plans into 1 repository and 1 schematisation CSV"""
     mode = PushMode(mode)
@@ -373,14 +374,23 @@ def push(
     with ThreediApi(env_file=env_file, version="v3-beta", asynchronous=False) as api:
         api: V3BetaApi = api
         for schematisation in schematisations:
+            revisions = schematisation.revisions
+            if last_update is not None:
+                revisions = [
+                    x
+                    for x in revisions
+                    if x.last_update.replace(tzinfo=None) >= last_update
+                ]
+                if len(revisions) == 0:
+                    continue
+
             oa_schema, created = api_utils.get_or_create_schematisation(
                 api, schematisation, overwrite=(mode == PushMode.overwrite)
             )
 
-            revisions = schematisation.revisions
             if mode == PushMode.incremental and not created:
                 latest_rev = api_utils.get_latest_revision(api, oa_schema.id, revisions)
-                revisions = [x for x in revisions if x.number > latest_rev]
+                revisions = [x for x in revisions if x.revision_nr > latest_rev]
 
             for revision in sorted(revisions, key=lambda x: x.revision_nr):
                 oa_rev, created = api_utils.get_or_create_revision(
