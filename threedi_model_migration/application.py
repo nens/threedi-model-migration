@@ -44,16 +44,17 @@ INSPECT_CSV_FIELDNAMES = [
 
 
 class InspectMode(Enum):
-    always = "always"
-    incremental = "incremental"
-    if_necessary = "if-necessary"
-    never = "never"
+    always = "always"  # discard the inspection file
+    incremental = "incremental"  # retrieve the HEAD and inspect the new commits
+    if_necessary = "if-necessary"  # if the inspect file is missing
+    never = "never"  # assume inspection file is there
 
 
 class PushMode(Enum):
-    full = "full"
-    overwrite = "overwrite"
-    incremental = "incremental"
+    full = "full"  # push all revisions; error if API has a different commit with same number
+    overwrite = "overwrite"  # always delete the API schematisation (for testing mostly)
+    incremental = "incremental"  # push newer revisions, increase revision number if necessary
+    never = "never"
 
 
 class RepositoryNotFound(FileNotFoundError):
@@ -125,7 +126,7 @@ def _needs_local_repo(base_path, slug, inspect_mode):
 def inspect(
     base_path: Path,
     slug: str,
-    inspect_mode: Union[InspectMode, str] = InspectMode.always,
+    inspect_mode: Union[InspectMode, str],
     last_update: Optional[datetime] = None,
     out: Optional[TextIO] = None,
 ):
@@ -240,7 +241,7 @@ def batch(
     uuid,
     last_update,
     inspect_mode,
-    do_push,
+    push_mode,
 ):
     repository = Repository(base_path, slug)
     inspect_mode = InspectMode(inspect_mode or "always")
@@ -280,33 +281,27 @@ def batch(
             default=custom_json_serializer,
         )
 
-    if do_push:
-        if inspect_mode is InspectMode.incremental:
-            push_mode = PushMode.incremental
+    for _ in range(2):
+        try:
+            push(
+                base_path,
+                slug,
+                push_mode,
+                env_file=env_file,
+                last_update=last_update,
+            )
+        except FileNotFoundError:
+            # Try again, after downloading the repo
+            download(
+                base_path,
+                slug,
+                remote,
+                uuid,
+                metadata,
+                lfclear,
+            )
         else:
-            push_mode = PushMode.full
-
-        for _ in range(2):
-            try:
-                push(
-                    base_path,
-                    slug,
-                    push_mode,
-                    env_file=env_file,
-                    last_update=last_update,
-                )
-            except FileNotFoundError:
-                # Try again, after downloading the repo
-                download(
-                    base_path,
-                    slug,
-                    remote,
-                    uuid,
-                    metadata,
-                    lfclear,
-                )
-            else:
-                break
+            break
 
     logger.info(f"Done processing {slug}.")
 
@@ -386,12 +381,15 @@ def report(base_path: Path):
 def push(
     base_path: Path,
     slug: str,
-    mode: Union[PushMode, str] = PushMode.incremental,
+    mode: Union[PushMode, str],
     env_file: Optional[Path] = None,
     last_update: Optional[datetime] = None,
 ):
     """Aggregate all plans into 1 repository and 1 schematisation CSV"""
     mode = PushMode(mode)
+    if mode is PushMode.never:
+        return
+
     repository = Repository(base_path, slug)
     repository_exists = repository.path.exists()
     plan_path = base_path / INSPECTION_RELPATH / f"{slug}.plan.json"

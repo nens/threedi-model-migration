@@ -137,10 +137,11 @@ def delete(ctx, slug):
     type=str,
 )
 @click.option(
-    "-i",
-    "--inspect_mode",
+    "-m",
+    "--mode",
     type=click.Choice([x.value for x in application.InspectMode], case_sensitive=False),
-    help="Controls whether the heavy clone & inspect tasks are done",
+    default=application.InspectMode.always,
+    help="Controls when to inspect",
 )
 @click.option(
     "-l",
@@ -218,13 +219,15 @@ def plan(ctx, slug, quiet):
     "-i",
     "--inspect_mode",
     type=click.Choice([x.value for x in application.InspectMode], case_sensitive=False),
-    help="Controls whether the heavy clone & inspect tasks are done",
+    default=application.InspectMode.if_necessary,
+    help="Controls when to inspect",
 )
 @click.option(
-    "-push/-np",
-    "--push/--no-push",
-    type=bool,
-    default=False,
+    "-p",
+    "--push_mode",
+    type=click.Choice([x.value for x in application.PushMode], case_sensitive=False),
+    default=application.PushMode.never,
+    help="Controls when to push",
 )
 @click.option(
     "-I",
@@ -253,7 +256,7 @@ def batch(
     uuid,
     last_update,
     inspect_mode,
-    push,
+    push_mode,
     include,
     exclude,
     owner_blacklist_path,
@@ -292,7 +295,7 @@ def batch(
                 uuid,
                 last_update,
                 inspect_mode,
-                push,
+                push_mode,
             )
         except Exception as e:
             logger.exception(f"Could not process {_metadata.slug}: {e}")
@@ -318,6 +321,7 @@ def report(ctx):
     "--mode",
     type=click.Choice([x.value for x in application.PushMode], case_sensitive=False),
     help="Controls which revisions are pushed",
+    default=application.PushMode.full,
 )
 @click.option(
     "-l",
