@@ -280,7 +280,7 @@ def batch(
         if exclude and any(fnmatch.fnmatch(slug, x) for x in exclude):
             continue
         try:
-            application.download_inspect_plan(
+            application.batch(
                 base_path,
                 metadata,
                 inpy_data,

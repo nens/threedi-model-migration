@@ -228,7 +228,7 @@ def plan(
         )
 
 
-def download_inspect_plan(
+def batch(
     base_path,
     metadata,
     inpy_data,
@@ -247,7 +247,7 @@ def download_inspect_plan(
     inspection_path = base_path / INSPECTION_RELPATH
 
     # Check if we need to download / pull & Inspect if necessary
-    if do_push or _needs_local_repo(base_path, slug, inspect_mode):
+    if _needs_local_repo(base_path, slug, inspect_mode):
         logger.info(f"Downloading {slug}...")
         needs_inspection = download(
             base_path,
@@ -281,15 +281,32 @@ def download_inspect_plan(
         )
 
     if do_push:
-        push(
-            base_path,
-            slug,
-            PushMode.incremental
-            if inspect_mode is InspectMode.incremental
-            else PushMode.full,
-            env_file=env_file,
-            last_update=last_update,
-        )
+        if inspect_mode is InspectMode.incremental:
+            push_mode = PushMode.incremental
+        else:
+            push_mode = PushMode.full
+
+        for _ in range(2):
+            try:
+                push(
+                    base_path,
+                    slug,
+                    push_mode,
+                    env_file=env_file,
+                    last_update=last_update,
+                )
+            except FileNotFoundError:
+                # Try again, after downloading the repo
+                download(
+                    base_path,
+                    slug,
+                    remote,
+                    uuid,
+                    metadata,
+                    lfclear,
+                )
+            else:
+                break
 
     logger.info(f"Done processing {slug}.")
 
@@ -376,13 +393,9 @@ def push(
     """Aggregate all plans into 1 repository and 1 schematisation CSV"""
     mode = PushMode(mode)
     repository = Repository(base_path, slug)
-    if not repository.path.exists():
-        raise FileNotFoundError(
-            f"{repository} does not exist locally, please download it first."
-        )
-
-    inspection_path = base_path / INSPECTION_RELPATH / f"{slug}.plan.json"
-    with inspection_path.open("r") as f:
+    repository_exists = repository.path.exists()
+    plan_path = base_path / INSPECTION_RELPATH / f"{slug}.plan.json"
+    with plan_path.open("r") as f:
         plan = json.load(f, object_hook=custom_json_object_hook)
 
     schematisations: List[Schematisation] = plan["schematisations"]
@@ -407,13 +420,16 @@ def push(
             set_revision_nr = True
             if mode == PushMode.incremental and not created:
                 latest, nr = api_utils.get_latest_revision(api, oa_schema.id, revisions)
-                revisions = [x for x in revisions if x.revision_nr > latest.revision_nr]
-                # Don't try to set the (API) revision number if it already has a newer
-                # one. In that case; leave it to the API. Revision numbers will
-                # not match.
+                if latest is not None:
+                    revisions = [
+                        x for x in revisions if x.revision_nr > latest.revision_nr
+                    ]
                 if len(revisions) == 0:
                     continue
 
+                # Don't try to set the (API) revision number if it already has a newer
+                # one. In that case; leave it to the API. Revision numbers will
+                # not match.
                 if nr is not None and revisions[0].revision_nr <= nr:
                     set_revision_nr = False
 
@@ -421,6 +437,12 @@ def push(
                 oa_rev, created = api_utils.get_or_create_revision(
                     api, oa_schema.id, revision, set_revision_nr=set_revision_nr
                 )
+                if not created:
+                    continue
+                if not repository_exists:
+                    raise FileNotFoundError(
+                        f"{repository} does not exist locally, please download it first."
+                    )
                 repository.checkout(revision.revision_hash)
                 api_utils.upload_sqlite(
                     api, oa_rev.id, oa_schema.id, repository.path, revision.sqlite

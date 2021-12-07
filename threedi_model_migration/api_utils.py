@@ -114,6 +114,7 @@ def get_latest_revision(
     logger.info("Getting the latest revision...")
 
     offset = 0
+    latest_revision = None
     latest_revision_nr = None
     while True:
         resp = api.schematisations_revisions_list(
@@ -133,9 +134,9 @@ def get_latest_revision(
         offset += 10
 
     if latest_revision is not None:
-        logger.info(f"The latest revision number is {latest_revision.revision_nr}...")
+        logger.info(f"The latest revision number is {latest_revision.revision_nr}.")
     else:
-        logger.info("No matching revision present")
+        logger.info("No matching revision present.")
     return latest_revision, latest_revision_nr
 
 
