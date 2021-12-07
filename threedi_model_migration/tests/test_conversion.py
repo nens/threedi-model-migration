@@ -135,44 +135,8 @@ def gen_repo(*revision_sqlites, changes=None):
                 [Sql(Path("db2"), settings=[Sett(1, "a")])],
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
-            ["testrepo - db2 - 1 a"],
-            [[1, 0]],
-        ),
-        # Renaming an sqlite is allowed, but a settings id must remain constant
-        (
-            gen_repo(
-                [Sql(Path("db2"), settings=[Sett(2, "b")])],
-                [Sql(Path("db1"), settings=[Sett(1, "a")])],
-            ),
-            ["testrepo - db1 - 1 a", "testrepo - db2 - 2 b"],
+            ["testrepo - db1 - 1 a", "testrepo - db2 - 1 a"],
             [[0], [1]],
-        ),
-        # Renaming an sqlite is allowed, and a setting can be added at the same time
-        (
-            gen_repo(
-                [
-                    Sql(Path("db2"), settings=[Sett(1, "a")]),
-                    Sql(Path("db2"), settings=[Sett(2, "b")]),
-                ],
-                [Sql(Path("db1"), settings=[Sett(1, "a")])],
-            ),
-            ["testrepo - db2 - 1 a", "testrepo - db2 - 2 b"],
-            [[1, 0], [1]],
-        ),
-        # Renaming an sqlite is allowed, another sqlite may be present
-        (
-            gen_repo(
-                [
-                    Sql(Path("db1"), settings=[Sett(1, "a")]),
-                    Sql(Path("db3"), settings=[Sett(1, "a")]),
-                ],
-                [
-                    Sql(Path("db1"), settings=[Sett(1, "a")]),
-                    Sql(Path("db2"), settings=[Sett(1, "a")]),
-                ],
-            ),
-            ["testrepo - db1 - 1 a", "testrepo - db3 - 1 a"],
-            [[1, 0], [1, 0]],
         ),
         # File is missing in changet of 2nd revision
         (

@@ -119,28 +119,6 @@ def repository_to_schematisations(
 
         schemas.append(schematisation)
 
-    # fix sqlite rename events: for each revision range that ends, find a schematisation
-    # that starts directly after
-    # to_delete = []
-    # for schema_1 in schemas:
-    #     expected_first_nr = schema_1.revisions[0].revision_nr + 1
-    #     adjacent = []
-    #     for schema_2 in schemas:
-    #         if (
-    #             schema_2.revisions[-1].revision_nr == expected_first_nr
-    #             and schema_2.settings_id == schema_1.settings_id
-    #         ):
-    #             adjacent.append(schema_2)
-
-    #     if len(adjacent) != 1:
-    #         continue  # cannot merge if situation is ambiguous
-
-    #     schema_2 = adjacent[0]
-    #     schema_2.revisions.extend(schema_1.revisions)
-    #     to_delete.append(schema_1)
-    # if len(to_delete) > 0:
-    #     schemas = [s for s in schemas if s not in to_delete]
-
     # check schematisation slug uniqueness
     slugs = [s.slug for s in schemas]
     if len(slugs) != len(set(slugs)):

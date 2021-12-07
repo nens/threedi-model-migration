@@ -32,6 +32,11 @@ History
 
 - Don't trust the "last_update" field in modeldatabank; get it from mercurial instead.
 
+- Don't try to merge schematisations that come from renamed sqlites. It leads to complex
+  issues when matching schematisations to the schematisations in the API.
+
+- Added 'push' functionality.
+
 
 0.3.0 (2021-11-29)
 ------------------
