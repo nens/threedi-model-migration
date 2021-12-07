@@ -16,9 +16,10 @@ from pathlib import Path
 from threedi_api_client import ThreediApi
 from threedi_api_client.openapi import V3BetaApi
 from typing import Dict
-from typing import List, Union
+from typing import List
 from typing import Optional
 from typing import TextIO
+from typing import Union
 from uuid import UUID
 
 import csv
@@ -280,8 +281,16 @@ def download_inspect_plan(
         )
 
     if do_push:
-        push(base_path, slug, PushMode.incremental if inspect_mode is InspectMode.incremental else PushMode.full, env_file=env_file, last_update=last_update)
-        
+        push(
+            base_path,
+            slug,
+            PushMode.incremental
+            if inspect_mode is InspectMode.incremental
+            else PushMode.full,
+            env_file=env_file,
+            last_update=last_update,
+        )
+
     logger.info(f"Done processing {slug}.")
 
 
@@ -407,7 +416,7 @@ def push(
 
                 if nr is not None and revisions[0].revision_nr <= nr:
                     set_revision_nr = False
-                
+
             for revision in sorted(revisions, key=lambda x: x.revision_nr):
                 oa_rev, created = api_utils.get_or_create_revision(
                     api, oa_schema.id, revision, set_revision_nr=set_revision_nr

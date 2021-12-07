@@ -248,7 +248,15 @@ def plan(ctx, slug, quiet):
 )
 @click.pass_context
 def batch(
-    ctx, remote, uuid, last_update, inspect_mode, push, include, exclude, owner_blacklist_path
+    ctx,
+    remote,
+    uuid,
+    last_update,
+    inspect_mode,
+    push,
+    include,
+    exclude,
+    owner_blacklist_path,
 ):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]

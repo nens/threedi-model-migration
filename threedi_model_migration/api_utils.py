@@ -16,8 +16,9 @@ from threedi_api_client.openapi import SqliteFileUpload as OASqlite
 from threedi_api_client.openapi import Upload as OAUpload
 from threedi_api_client.openapi import V3BetaApi
 from threedi_api_client.openapi.exceptions import ApiException
-from typing import List, Tuple
+from typing import List
 from typing import Optional
+from typing import Tuple
 
 import json
 import logging
@@ -106,7 +107,7 @@ def get_latest_revision(
     api: V3BetaApi, schema_id: int, revisions=List[SchemaRevision]
 ) -> Tuple[Optional[SchemaRevision], Optional[int]]:
     """Retrieve the (internal) revision object that matches the latest one in the API.
-    
+
     This is tricky to get right as users may have committed via the API (so that
     revision numbers do not match). This function uses the commit_date to compare.
     """
@@ -130,7 +131,7 @@ def get_latest_revision(
             break
 
         offset += 10
-    
+
     if latest_revision is not None:
         logger.info(f"The latest revision number is {latest_revision.revision_nr}...")
     else:
@@ -139,7 +140,10 @@ def get_latest_revision(
 
 
 def get_or_create_revision(
-    api: V3BetaApi, schema_id: int, revision: SchemaRevision, set_revision_nr: bool,
+    api: V3BetaApi,
+    schema_id: int,
+    revision: SchemaRevision,
+    set_revision_nr: bool,
 ) -> OARevision:
     resp = api.schematisations_revisions_list(
         schema_id, commit_date=revision.last_update
