@@ -3,6 +3,7 @@ from .file import Raster
 from .file import RasterOptions
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
+from .zip_utils import deterministic_zip
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from threedi_api_client.files import upload_file
@@ -20,10 +21,10 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
+import hashlib
 import json
 import logging
 import time
-import zipfile
 
 
 logger = logging.getLogger(__name__)
@@ -51,8 +52,14 @@ def get_or_create_schematisation(
         owner=schematisation.metadata.owner,
         name=schematisation.name,
         slug=schematisation.slug,
-        tags=[],
-        meta=schematisation.metadata.meta,
+        tags=["models.lizard.net"],
+        meta={
+            "repository": schematisation.repo_slug,
+            "sqlite_name": schematisation.sqlite_name,
+            "settings_id": schematisation.settings_id,
+            "settings_name": schematisation.settings_name,
+            **schematisation.metadata.meta,
+        },
         created_by=schematisation.metadata.created_by,
         created=schematisation.metadata.created,
     )
@@ -164,20 +171,27 @@ def get_or_create_revision(
 def upload_sqlite(
     api: V3BetaApi, rev_id: int, schema_id: int, repo_path: Path, sqlite: File
 ):
-    logger.info(f"Creating and uploading {str(sqlite.path)}...")
-    obj = OASqlite(
-        filename=sqlite.path.stem + ".zip",
-        md5sum=sqlite.md5,
-    )
-    upload = api.schematisations_revisions_sqlite_upload(rev_id, schema_id, obj)
+    """Note that this does not make use of deduplication, as"""
+    logger.info(f"Creating {str(sqlite.path)}...")
 
-    # Sqlite files are zipped
+    # Sqlite files are zipped; the md5 sum is that of the zipped file (so: recompute)
     with SpooledTemporaryFile(mode="w+b") as f:
-        with zipfile.ZipFile(f, "x") as zip_file:
-            zip_file.write((repo_path / sqlite.path).as_posix(), sqlite.path.name)
-            zip_file.close()
+        deterministic_zip(f, [repo_path / sqlite.path])
         f.seek(0)
-        upload_fileobj(upload.put_url, f)
+        md5 = hashlib.md5(f.read())
+        f.seek(0)
+        obj = OASqlite(
+            filename=sqlite.path.stem + ".zip",
+            md5sum=md5.hexdigest(),
+        )
+        upload = api.schematisations_revisions_sqlite_upload(rev_id, schema_id, obj)
+        if upload.put_url is None:
+            logger.info(
+                f"Sqlite '{str(sqlite.path)}' already existed, skipping upload."
+            )
+        else:
+            logger.info(f"Uploading '{str(sqlite.path)}'...")
+            upload_fileobj(upload.put_url, f, md5=md5.digest())
 
 
 def upload_raster(
@@ -207,7 +221,7 @@ def upload_raster(
         resp.id, rev_id, schema_id, obj
     )
 
-    upload_file(upload.put_url, repo_path / raster.path)
+    upload_file(upload.put_url, repo_path / raster.path, md5=bytes.fromhex(raster.md5))
 
 
 def commit_revision(
