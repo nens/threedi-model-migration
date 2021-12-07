@@ -16,7 +16,7 @@ from threedi_api_client.openapi import SqliteFileUpload as OASqlite
 from threedi_api_client.openapi import Upload as OAUpload
 from threedi_api_client.openapi import V3BetaApi
 from threedi_api_client.openapi.exceptions import ApiException
-from typing import List
+from typing import List, Tuple
 from typing import Optional
 
 import json
@@ -31,10 +31,12 @@ logger = logging.getLogger(__name__)
 def get_or_create_schematisation(
     api: V3BetaApi, schematisation: Schematisation, overwrite: bool = False
 ) -> OASchematisation:
-    resp = api.schematisations_list(name=schematisation.name, owner__unique_id=schematisation.metadata.owner)
+    resp = api.schematisations_list(
+        slug=schematisation.slug, owner__unique_id=schematisation.metadata.owner
+    )
     if resp.count == 1 and not overwrite:
         logger.info(
-            f"Schematisation '{schematisation.name}' already exists, skipping creation."
+            f"Schematisation '{schematisation.slug}' already exists, skipping creation."
         )
         return resp.results[0], False
     elif resp.count == 1 and overwrite:
@@ -47,6 +49,7 @@ def get_or_create_schematisation(
     obj = OASchematisation(
         owner=schematisation.metadata.owner,
         name=schematisation.name,
+        slug=schematisation.slug,
         tags=[],
         meta=schematisation.metadata.meta,
         created_by=schematisation.metadata.created_by,
@@ -78,10 +81,6 @@ def delete_schematisation(api: V3BetaApi, schema_id: int):
             api.schematisations_revisions_delete(
                 oa_revision.id, schema_id, {"number": oa_revision.number}
             )
-            if oa_revision.archived is None:
-                api.schematisations_revisions_delete(
-                    oa_revision.id, schema_id, {"number": oa_revision.number}
-                )
 
     # then the schematisation
     api.schematisations_delete(schema_id)
@@ -92,34 +91,37 @@ def _match_revision(
 ) -> SchemaRevision:
     """Match an external (OpenAPI) revision with an internal (SchemaRevision)
 
-    The revision with the same number is returned. The commit date is
-    also compared.
+    The revision with the commit date is returned.
 
-    Revisions should be sorted new to old ('revision_nr' descending)
+    Revisions should be sorted new to old ('last_update' descending)
     """
     for revision in revisions:
-        if oa_revision.number < revision.revision_nr:
+        if oa_revision.commit_date > revision.last_update:
             break
-        elif oa_revision.number > revision.revision_nr:
-            continue
         if oa_revision.commit_date == revision.last_update:
             return revision
-        else:
-            break
 
 
 def get_latest_revision(
     api: V3BetaApi, schema_id: int, revisions=List[SchemaRevision]
-) -> Optional[OARevision]:
+) -> Tuple[Optional[SchemaRevision], Optional[int]]:
+    """Retrieve the (internal) revision object that matches the latest one in the API.
+    
+    This is tricky to get right as users may have committed via the API (so that
+    revision numbers do not match). This function uses the commit_date to compare.
+    """
     logger.info("Getting the latest revision...")
 
     offset = 0
+    latest_revision_nr = None
     while True:
         resp = api.schematisations_revisions_list(
             schema_id, committed=True, limit=10, offset=offset
         )
 
         for oa_revision in resp.results:
+            if latest_revision_nr is None:
+                latest_revision_nr = oa_revision.number
             latest_revision = _match_revision(oa_revision, revisions)
             if latest_revision is not None:
                 break
@@ -128,26 +130,28 @@ def get_latest_revision(
             break
 
         offset += 10
-
-    logger.info(f"The latest revision number is {latest_revision.revision_nr}...")
-    return latest_revision
+    
+    if latest_revision is not None:
+        logger.info(f"The latest revision number is {latest_revision.revision_nr}...")
+    else:
+        logger.info("No matching revision present")
+    return latest_revision, latest_revision_nr
 
 
 def get_or_create_revision(
-    api: V3BetaApi, schema_id: int, revision: SchemaRevision
+    api: V3BetaApi, schema_id: int, revision: SchemaRevision, set_revision_nr: bool,
 ) -> OARevision:
     resp = api.schematisations_revisions_list(
-        schema_id, number=revision.revision_nr, committed=True
+        schema_id, commit_date=revision.last_update
     )
     if resp.count == 1:
         logger.info(f"Revision {revision.revision_nr} is already present, skipping.")
         return resp.results[0], False
 
     logger.info(f"Creating revision {revision.revision_nr}...")
-    obj = OACreateRevision(
-        empty=True,
-        number=revision.revision_nr,
-    )
+    obj = OACreateRevision(empty=True)
+    if set_revision_nr:
+        obj.revision_nr = revision.revision_nr
     resp = api.schematisations_revisions_create(schema_id, obj)
     return resp, True
 

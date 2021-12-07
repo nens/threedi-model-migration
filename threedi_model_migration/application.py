@@ -16,7 +16,7 @@ from pathlib import Path
 from threedi_api_client import ThreediApi
 from threedi_api_client.openapi import V3BetaApi
 from typing import Dict
-from typing import List
+from typing import List, Union
 from typing import Optional
 from typing import TextIO
 from uuid import UUID
@@ -124,7 +124,7 @@ def _needs_local_repo(base_path, slug, inspect_mode):
 def inspect(
     base_path: Path,
     slug: str,
-    inspect_mode: InspectMode = InspectMode.always,
+    inspect_mode: Union[InspectMode, str] = InspectMode.always,
     last_update: Optional[datetime] = None,
     out: Optional[TextIO] = None,
 ):
@@ -360,7 +360,7 @@ def report(base_path: Path):
 def push(
     base_path: Path,
     slug: str,
-    mode: PushMode = PushMode.incremental,
+    mode: Union[PushMode, str] = PushMode.incremental,
     env_file: Optional[Path] = None,
     last_update: Optional[datetime] = None,
 ):
@@ -378,7 +378,7 @@ def push(
 
     schematisations: List[Schematisation] = plan["schematisations"]
     with ThreediApi(env_file=env_file, version="v3-beta", asynchronous=False) as api:
-        api: V3BetaApi = api
+        api: V3BetaApi
         for schematisation in schematisations:
             revisions = schematisation.revisions
             if last_update is not None:
@@ -395,25 +395,23 @@ def push(
             )
             logger.info(f"Got schematisation with pk='{oa_schema.id}'.")
 
+            set_revision_nr = True
             if mode == PushMode.incremental and not created:
-                latest_rev = api_utils.get_latest_revision(api, oa_schema.id, revisions)
-                revisions = [x for x in revisions if x.revision_nr > latest_rev]
+                latest, nr = api_utils.get_latest_revision(api, oa_schema.id, revisions)
+                revisions = [x for x in revisions if x.revision_nr > latest.revision_nr]
+                # Don't try to set the (API) revision number if it already has a newer
+                # one. In that case; leave it to the API. Revision numbers will
+                # not match.
+                if len(revisions) == 0:
+                    continue
 
+                if nr is not None and revisions[0].revision_nr <= nr:
+                    set_revision_nr = False
+                
             for revision in sorted(revisions, key=lambda x: x.revision_nr):
                 oa_rev, created = api_utils.get_or_create_revision(
-                    api, oa_schema.id, revision
+                    api, oa_schema.id, revision, set_revision_nr=set_revision_nr
                 )
-                if not created:
-                    # There is apparently already a committed rev with this id.
-                    # Check the commit_date to see if they are actually the same.
-                    if oa_rev.commit_date == revision.last_update:
-                        continue
-                    else:
-                        raise RuntimeError(
-                            f"Can't push revision {revision.revision_nr} as there "
-                            f"already is a commit with that number."
-                        )
-
                 repository.checkout(revision.revision_hash)
                 api_utils.upload_sqlite(
                     api, oa_rev.id, oa_schema.id, repository.path, revision.sqlite
