@@ -4,6 +4,7 @@ from .file import RasterOptions
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
 from .zip_utils import deterministic_zip
+from enum import Enum
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from threedi_api_client.files import upload_file
@@ -25,7 +26,6 @@ import hashlib
 import json
 import logging
 import time
-from enum import Enum
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,9 @@ class NoSchematisation(Exception):
 
 
 def get_or_create_schematisation(
-    api: V3BetaApi, schematisation: Schematisation, mode: PushMode = PushMode.full,
+    api: V3BetaApi,
+    schematisation: Schematisation,
+    mode: PushMode = PushMode.full,
 ) -> OASchematisation:
     if mode is PushMode.never:
         raise ValueError("Invalid push mode 'never'")

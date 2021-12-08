@@ -328,7 +328,6 @@ def batch(
             application.delete(base_path, slug)
 
 
-
 @main.command()
 @click.argument(
     "url",

@@ -1,5 +1,6 @@
 """Main module."""
 from . import api_utils
+from .api_utils import PushMode
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
@@ -10,7 +11,6 @@ from .repository import DEFAULT_REMOTE
 from .repository import Repository
 from .schematisation import SchemaMeta
 from .schematisation import Schematisation
-from .api_utils import PushMode
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -414,7 +414,9 @@ def push(
                     continue
 
             oa_schema, created = api_utils.get_or_create_schematisation(
-                api, schematisation, mode=mode,
+                api,
+                schematisation,
+                mode=mode,
             )
             logger.info(f"Got schematisation with pk='{oa_schema.id}'.")
 
