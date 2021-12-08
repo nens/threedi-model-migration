@@ -9,6 +9,7 @@ import fnmatch
 import logging
 import pathlib
 import sys
+import json
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,12 @@ logger = logging.getLogger(__name__)
     help="An env file containing API host, user, password",
 )
 @click.option(
+    "-u",
+    "--user_mapping_path",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An optional path to a json mapping Mercurial users to API usernames",
+)
+@click.option(
     "--lfclear",
     type=bool,
     default=False,
@@ -54,13 +61,14 @@ logger = logging.getLogger(__name__)
     help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
 )
 @click.pass_context
-def main(ctx, base_path, metadata_path, inpy_path, env_file, lfclear, verbosity):
+def main(ctx, base_path, metadata_path, inpy_path, user_mapping_path, env_file, lfclear, verbosity):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
     ctx.obj["base_path"] = base_path
     ctx.obj["metadata_path"] = metadata_path
     ctx.obj["inpy_path"] = inpy_path
     ctx.obj["env_file"] = env_file
+    ctx.obj["user_mapping_path"] = user_mapping_path
     ctx.obj["lfclear"] = lfclear
 
     # setup logging
@@ -190,6 +198,7 @@ def plan(ctx, slug, quiet):
         slug,
         ctx.obj["metadata_path"],
         ctx.obj["inpy_path"],
+        ctx.obj["user_mapping_path"],
         quiet,
     )
 
@@ -272,6 +281,11 @@ def batch(
         inpy_data, org_lut = load_inpy(ctx.obj["inpy_path"])
     else:
         inpy_data = org_lut = None
+    if ctx.obj["user_mapping_path"]:
+        with ctx.obj["user_mapping_path"].open("r") as f:
+            user_lut = json.load(f)
+    else:
+        user_lut = None
 
     # sort newest first
     sorted_metadata = sorted(metadata.values(), key=lambda x: x.created, reverse=True)
@@ -290,6 +304,7 @@ def batch(
                 env_file,
                 lfclear,
                 org_lut,
+                user_lut,
                 slug,
                 remote,
                 uuid,

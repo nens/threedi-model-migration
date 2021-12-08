@@ -187,6 +187,7 @@ def plan(
     slug: str,
     metadata_path: Optional[Path] = None,
     inpy_path: Optional[Path] = None,
+    user_mapping_path: Optional[Path] = None,
     quiet: bool = True,
 ):
     """Create a migration plan and write results to JSON.
@@ -202,12 +203,15 @@ def plan(
     metadata = load_modeldatabank(metadata_path) if metadata_path else None
     inpy_data, org_lut = load_inpy(inpy_path) if inpy_path else (None, None)
 
+    with user_mapping_path.open("r") as f:
+        user_lut = json.load(f)
+
     with (inspection_path / f"{slug}.json").open("r") as f:
         repository = json.load(f, object_hook=custom_json_object_hook)
 
     assert repository.slug == slug
 
-    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
+    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut, user_lut)
     if not quiet:
         print(f"Schematisation count: {result['count']}")
 
@@ -236,6 +240,7 @@ def batch(
     env_file,
     lfclear,
     org_lut,
+    user_lut,
     slug,
     remote,
     uuid,
@@ -272,7 +277,7 @@ def batch(
 
     # copy of application.plan()
     logger.info(f"Planning {slug}...")
-    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
+    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut, user_lut)
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
             result,

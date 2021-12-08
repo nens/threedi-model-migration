@@ -8,17 +8,13 @@ from .schematisation import SchemaRevision
 from .schematisation import Schematisation
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 from typing import List
 
 import logging
 
 
 logger = logging.getLogger(__name__)
-
-
-def _unique_id(sqlite: RepoSqlite, settings: RepoSettings):
-    return (str(sqlite.sqlite_path), settings.settings_id)
 
 
 def raster_lookup(
@@ -40,9 +36,10 @@ def raster_lookup(
 
 def repository_to_schematisations(
     repository: Repository,
-    metadata: Dict[str, SchemaMeta] = None,
-    inpy_data: Dict[str, InpyMeta] = None,
-    org_lut: Dict[str, str] = None,
+    metadata: Optional[Dict[str, SchemaMeta]] = None,
+    inpy_data: Optional[Dict[str, InpyMeta]] = None,
+    org_lut: Optional[Dict[str, str]]= None,
+    user_lut: Optional[Dict[str, str]] = None,
 ) -> List[Schematisation]:
     """Apply logic to convert a repository to several schematisations
 
@@ -94,6 +91,11 @@ def repository_to_schematisations(
                     f"Skipped rev #{revision.revision_nr} in '{schematisation}'."
                 )
                 continue
+
+            # map commit_user
+            commit_user = revision.commit_user
+            if user_lut is not None:
+                commit_user = user_lut.get(commit_user, commit_user)
 
             schematisation.revisions.append(
                 SchemaRevision(
