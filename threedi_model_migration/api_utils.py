@@ -240,7 +240,7 @@ def commit_revision(
         time.sleep(wait_time)
 
     obj = OACommit(
-        commit_message=revision.commit_msg[:512],
+        commit_message=revision.commit_msg,
         commit_date=revision.last_update,
         user=revision.commit_user,
     )
