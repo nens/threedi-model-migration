@@ -148,7 +148,7 @@ def delete(ctx, slug):
     "-m",
     "--mode",
     type=click.Choice([x.value for x in application.InspectMode], case_sensitive=False),
-    default=application.InspectMode.always,
+    default=application.InspectMode.always.value,
     help="Controls when to inspect",
 )
 @click.option(
@@ -228,14 +228,14 @@ def plan(ctx, slug, quiet):
     "-i",
     "--inspect_mode",
     type=click.Choice([x.value for x in application.InspectMode], case_sensitive=False),
-    default=application.InspectMode.if_necessary,
+    default=application.InspectMode.if_necessary.value,
     help="Controls when to inspect",
 )
 @click.option(
     "-p",
     "--push_mode",
     type=click.Choice([x.value for x in application.PushMode], case_sensitive=False),
-    default=application.PushMode.never,
+    default=application.PushMode.never.value,
     help="Controls when to push",
 )
 @click.option(
@@ -336,7 +336,7 @@ def report(ctx):
     "--mode",
     type=click.Choice([x.value for x in application.PushMode], case_sensitive=False),
     help="Controls which revisions are pushed",
-    default=application.PushMode.full,
+    default=application.PushMode.full.value,
 )
 @click.option(
     "-l",

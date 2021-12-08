@@ -105,7 +105,7 @@ def repository_to_schematisations(
                     revision_hash=revision.revision_hash,
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
-                    commit_user=revision.commit_user,
+                    commit_user=commit_user,
                     sqlite=sqlite_file,
                     rasters=[x[1] for x in rasters if x is not None],
                 )
