@@ -10,6 +10,7 @@ from .repository import DEFAULT_REMOTE
 from .repository import Repository
 from .schematisation import SchemaMeta
 from .schematisation import Schematisation
+from .api_utils import PushMode
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -48,15 +49,6 @@ class InspectMode(Enum):
     incremental = "incremental"  # retrieve the HEAD and inspect the new commits
     if_necessary = "if-necessary"  # if the inspect file is missing
     never = "never"  # assume inspection file is there
-
-
-class PushMode(Enum):
-    full = "full"  # push all revisions; error if API has a different commit with same number
-    overwrite = "overwrite"  # always delete the API schematisation (for testing mostly)
-    incremental = (
-        "incremental"  # push newer revisions, increase revision number if necessary
-    )
-    never = "never"
 
 
 class RepositoryNotFound(FileNotFoundError):
@@ -422,7 +414,7 @@ def push(
                     continue
 
             oa_schema, created = api_utils.get_or_create_schematisation(
-                api, schematisation, overwrite=(mode == PushMode.overwrite)
+                api, schematisation, mode=mode,
             )
             logger.info(f"Got schematisation with pk='{oa_schema.id}'.")
 
@@ -537,3 +529,13 @@ def patch_uuids(
                 default=custom_json_serializer,
             )
         logger.info(f"Patched repository {slug} (formerly: {uuid})")
+
+
+def consume_amqp(url, queue, slug_func):
+    """Wait for messages via AMQP and run batch() when necessary
+
+    The messages should be the repository slug in plain bytes.
+    """
+    from .amqp import consume
+
+    consume(url, queue, slug_func)

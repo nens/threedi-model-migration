@@ -49,6 +49,7 @@ setup(
     tests_require=test_requirements,
     extras_require={
         "test": test_requirements,
+        "amqp": ["pika"],
     },
     url="https://github.com/nens/threedi_model_migration",
     version=version,
