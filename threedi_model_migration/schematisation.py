@@ -1,6 +1,7 @@
 from .file import File
 from .file import Raster
 from .metadata import SchemaMeta
+from .text_utils import slugify
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -41,12 +42,16 @@ class Schematisation:
     metadata: Optional[SchemaMeta] = None
     revisions: Optional[List[SchemaRevision]] = None
 
-    name: str = None  # max 256 characters, unique within org, generated here
+    @property
+    def name(self):
+        return (
+            f"{self.repo_slug} - {self.sqlite_name} - "
+            f"{self.settings_id} {self.settings_name}"
+        )[:256]
 
-    def __post_init__(self):
-        self.name = f"{self.repo_slug} - {self.sqlite_name} - {self.settings_id} {self.settings_name}"[
-            :256
-        ]
+    @property
+    def slug(self):
+        return slugify(self.name)
 
     def get_files(self) -> Set[File]:
         result = set()

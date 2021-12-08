@@ -1,4 +1,5 @@
 """Main module."""
+from . import api_utils
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
@@ -12,10 +13,13 @@ from .schematisation import Schematisation
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from threedi_api_client import ThreediApi
+from threedi_api_client.openapi import V3BetaApi
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import TextIO
+from typing import Union
 from uuid import UUID
 
 import csv
@@ -40,9 +44,16 @@ INSPECT_CSV_FIELDNAMES = [
 
 
 class InspectMode(Enum):
-    always = "always"
-    incremental = "incremental"
-    if_necessary = "if-necessary"
+    always = "always"  # discard the inspection file
+    incremental = "incremental"  # retrieve the HEAD and inspect the new commits
+    if_necessary = "if-necessary"  # if the inspect file is missing
+    never = "never"  # assume inspection file is there
+
+
+class PushMode(Enum):
+    full = "full"  # push all revisions; error if API has a different commit with same number
+    overwrite = "overwrite"  # always delete the API schematisation (for testing mostly)
+    incremental = "incremental"  # push newer revisions, increase revision number if necessary
     never = "never"
 
 
@@ -115,7 +126,7 @@ def _needs_local_repo(base_path, slug, inspect_mode):
 def inspect(
     base_path: Path,
     slug: str,
-    inspect_mode: InspectMode = InspectMode.always,
+    inspect_mode: Union[InspectMode, str],
     last_update: Optional[datetime] = None,
     out: Optional[TextIO] = None,
 ):
@@ -218,10 +229,11 @@ def plan(
         )
 
 
-def download_inspect_plan(
+def batch(
     base_path,
     metadata,
     inpy_data,
+    env_file,
     lfclear,
     org_lut,
     slug,
@@ -229,9 +241,10 @@ def download_inspect_plan(
     uuid,
     last_update,
     inspect_mode,
+    push_mode,
 ):
     repository = Repository(base_path, slug)
-    inspect_mode = InspectMode(inspect_mode)
+    inspect_mode = InspectMode(inspect_mode or "always")
     inspection_path = base_path / INSPECTION_RELPATH
 
     # Check if we need to download / pull & Inspect if necessary
@@ -267,6 +280,29 @@ def download_inspect_plan(
             indent=4,
             default=custom_json_serializer,
         )
+
+    for _ in range(2):
+        try:
+            push(
+                base_path,
+                slug,
+                push_mode,
+                env_file=env_file,
+                last_update=last_update,
+            )
+        except FileNotFoundError:
+            # Try again, after downloading the repo
+            download(
+                base_path,
+                slug,
+                remote,
+                uuid,
+                metadata,
+                lfclear,
+            )
+        else:
+            break
+
     logger.info(f"Done processing {slug}.")
 
 
@@ -340,6 +376,80 @@ def report(base_path: Path):
                     "last_rev_nr": schematisation.revisions[0].revision_nr,
                 }
                 writer2.writerow(record)
+
+
+def push(
+    base_path: Path,
+    slug: str,
+    mode: Union[PushMode, str],
+    env_file: Optional[Path] = None,
+    last_update: Optional[datetime] = None,
+):
+    """Aggregate all plans into 1 repository and 1 schematisation CSV"""
+    mode = PushMode(mode)
+    if mode is PushMode.never:
+        return
+
+    repository = Repository(base_path, slug)
+    repository_exists = repository.path.exists()
+    plan_path = base_path / INSPECTION_RELPATH / f"{slug}.plan.json"
+    with plan_path.open("r") as f:
+        plan = json.load(f, object_hook=custom_json_object_hook)
+
+    schematisations: List[Schematisation] = plan["schematisations"]
+    with ThreediApi(env_file=env_file, version="v3-beta", asynchronous=False) as api:
+        api: V3BetaApi
+        for schematisation in schematisations:
+            revisions = schematisation.revisions
+            if last_update is not None:
+                revisions = [
+                    x
+                    for x in revisions
+                    if x.last_update.replace(tzinfo=None) >= last_update
+                ]
+                if len(revisions) == 0:
+                    continue
+
+            oa_schema, created = api_utils.get_or_create_schematisation(
+                api, schematisation, overwrite=(mode == PushMode.overwrite)
+            )
+            logger.info(f"Got schematisation with pk='{oa_schema.id}'.")
+
+            set_revision_nr = True
+            if mode == PushMode.incremental and not created:
+                latest, nr = api_utils.get_latest_revision(api, oa_schema.id, revisions)
+                if latest is not None:
+                    revisions = [
+                        x for x in revisions if x.revision_nr > latest.revision_nr
+                    ]
+                if len(revisions) == 0:
+                    continue
+
+                # Don't try to set the (API) revision number if it already has a newer
+                # one. In that case; leave it to the API. Revision numbers will
+                # not match.
+                if nr is not None and revisions[0].revision_nr <= nr:
+                    set_revision_nr = False
+
+            for revision in sorted(revisions, key=lambda x: x.revision_nr):
+                oa_rev, created = api_utils.get_or_create_revision(
+                    api, oa_schema.id, revision, set_revision_nr=set_revision_nr
+                )
+                if not created:
+                    continue
+                if not repository_exists:
+                    raise FileNotFoundError(
+                        f"{repository} does not exist locally, please download it first."
+                    )
+                repository.checkout(revision.revision_hash)
+                api_utils.upload_sqlite(
+                    api, oa_rev.id, oa_schema.id, repository.path, revision.sqlite
+                )
+                for raster in revision.rasters:
+                    api_utils.upload_raster(
+                        api, oa_rev.id, oa_schema.id, repository.path, raster
+                    )
+                api_utils.commit_revision(api, oa_rev.id, oa_schema.id, revision)
 
 
 def patch_uuids(
