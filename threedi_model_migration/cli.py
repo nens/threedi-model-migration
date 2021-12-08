@@ -6,10 +6,10 @@ from .repository import DEFAULT_REMOTE
 
 import click
 import fnmatch
+import json
 import logging
 import pathlib
 import sys
-import json
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,16 @@ logger = logging.getLogger(__name__)
     help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
 )
 @click.pass_context
-def main(ctx, base_path, metadata_path, inpy_path, user_mapping_path, env_file, lfclear, verbosity):
+def main(
+    ctx,
+    base_path,
+    metadata_path,
+    inpy_path,
+    user_mapping_path,
+    env_file,
+    lfclear,
+    verbosity,
+):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
     ctx.obj["base_path"] = base_path

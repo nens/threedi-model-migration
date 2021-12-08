@@ -53,7 +53,9 @@ class InspectMode(Enum):
 class PushMode(Enum):
     full = "full"  # push all revisions; error if API has a different commit with same number
     overwrite = "overwrite"  # always delete the API schematisation (for testing mostly)
-    incremental = "incremental"  # push newer revisions, increase revision number if necessary
+    incremental = (
+        "incremental"  # push newer revisions, increase revision number if necessary
+    )
     never = "never"
 
 
@@ -211,7 +213,9 @@ def plan(
 
     assert repository.slug == slug
 
-    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut, user_lut)
+    result = repository_to_schematisations(
+        repository, metadata, inpy_data, org_lut, user_lut
+    )
     if not quiet:
         print(f"Schematisation count: {result['count']}")
 
@@ -277,7 +281,9 @@ def batch(
 
     # copy of application.plan()
     logger.info(f"Planning {slug}...")
-    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut, user_lut)
+    result = repository_to_schematisations(
+        repository, metadata, inpy_data, org_lut, user_lut
+    )
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
             result,

@@ -1,15 +1,14 @@
 from .file import Raster
 from .metadata import InpyMeta
 from .metadata import SchemaMeta
-from .repository import RepoSettings
 from .repository import Repository
-from .repository import RepoSqlite
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 from typing import List
+from typing import Optional
 
 import logging
 
@@ -38,7 +37,7 @@ def repository_to_schematisations(
     repository: Repository,
     metadata: Optional[Dict[str, SchemaMeta]] = None,
     inpy_data: Optional[Dict[str, InpyMeta]] = None,
-    org_lut: Optional[Dict[str, str]]= None,
+    org_lut: Optional[Dict[str, str]] = None,
     user_lut: Optional[Dict[str, str]] = None,
 ) -> List[Schematisation]:
     """Apply logic to convert a repository to several schematisations
