@@ -2,7 +2,7 @@
 History
 =======
 
-0.3.1 (unreleased)
+0.4.0 (2021-12-08)
 ------------------
 
 - Skip 3Di v1 repositories.
