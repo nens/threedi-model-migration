@@ -144,9 +144,9 @@ def main(
     ctx.obj["amqp_url"] = amqp_url
 
     if sentry_dsn:
-        import sentry_sdk
+        from .sentry import setup_sentry
 
-        sentry_sdk.init(sentry_dsn)
+        setup_sentry(sentry_dsn)
 
     # setup logging
     LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]

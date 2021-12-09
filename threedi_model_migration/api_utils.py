@@ -257,16 +257,30 @@ def commit_revision(
     # First wait for all files to have turned to 'uploaded'
     for wait_time in [0.5, 1.0, 2.0, 10.0]:
         oa_revision = api.schematisations_revisions_read(rev_id, schema_id)
-        if oa_revision.sqlite.file.state == "uploaded" and all(
-            raster.file.state == "uploaded" for raster in oa_revision.rasters
-        ):
+        states = [oa_revision.sqlite.file.state]
+        states.append([raster.file.state for raster in oa_revision.rasters])
+
+        if all(state == "uploaded" for state in states):
             break
+        elif not any(state == "created" for state in states):
+            # list files that have an unexpected state
+            files = [
+                raster.file
+                for raster in oa_revision.rasters
+                if raster.file.state not in ("uploaded", "created")
+            ]
+            if oa_revision.sqlite.file.state not in ("uploaded", "created"):
+                files = [oa_revision.sqlite.file] + files
+            logger.exception(
+                f"Files {[x.id for x in files]} have unexpected state. Skipping commit."
+            )
+            return
         logger.info(
             f"Sleeping {wait_time} seconds to wait for the files to become 'uploaded'..."
         )
         time.sleep(wait_time)
     else:
-        raise RuntimeError("Files did not receive the correct 'uploaded' state")
+        raise RuntimeError("Some files are still in 'created' state")
 
     # In the API, the 'user' is just a string and 'commit_user' is an FK to user
     user = revision.commit_user
