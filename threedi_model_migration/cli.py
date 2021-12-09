@@ -88,6 +88,7 @@ def main(
     ctx.obj["lfclear"] = lfclear
     if sentry_dsn:
         import sentry_sdk
+
         sentry_sdk.init(sentry_dsn)
 
     # setup logging
