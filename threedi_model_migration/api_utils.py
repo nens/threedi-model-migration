@@ -17,6 +17,7 @@ from threedi_api_client.openapi import SqliteFileUpload as OASqlite
 from threedi_api_client.openapi import Upload as OAUpload
 from threedi_api_client.openapi import V3BetaApi
 from threedi_api_client.openapi.exceptions import ApiException
+from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -225,7 +226,11 @@ def upload_raster(
 
 
 def commit_revision(
-    api: V3BetaApi, rev_id: int, schema_id: int, revision: SchemaRevision
+    api: V3BetaApi,
+    rev_id: int,
+    schema_id: int,
+    revision: SchemaRevision,
+    user_lut: Optional[Dict[str, str]] = None,
 ):
     # First wait for all files to have turned to 'uploaded'
     for wait_time in [0.5, 1.0, 2.0, 10.0]:
@@ -239,10 +244,28 @@ def commit_revision(
         )
         time.sleep(wait_time)
 
+    # In the API, the 'user' is just a string and 'commit_user' is an FK to user
+    user = revision.commit_user
     obj = OACommit(
         commit_message=revision.commit_msg,
         commit_date=revision.last_update,
-        user=revision.commit_user,
+        user=user,
     )
-    api.schematisations_revisions_commit(rev_id, schema_id, obj)
+    # Only attempt to set 'commit_user' if the user is in the user look-up table
+    if user_lut and user in user_lut:
+        obj.commit_user = user_lut[user]
+
+    for _ in range(2):
+        try:
+            api.schematisations_revisions_commit(rev_id, schema_id, obj)
+        except ApiException as e:
+            if e.status == 400:
+                errors = json.loads(e.body)
+                if len(errors.get("commit_user", [])) == 1:
+                    logger.warning(errors["commit_user"])
+                    obj.commit_user = None
+                    continue  # try again if user is not found
+            raise e
+        break
+
     logger.info(f"Committed revision {revision.revision_nr}.")

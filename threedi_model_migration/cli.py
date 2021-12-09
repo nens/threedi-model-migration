@@ -207,7 +207,6 @@ def plan(ctx, slug, quiet):
         slug,
         ctx.obj["metadata_path"],
         ctx.obj["inpy_path"],
-        ctx.obj["user_mapping_path"],
         quiet,
     )
 
@@ -356,7 +355,14 @@ def report(ctx):
 @click.pass_context
 def push(ctx, slug, mode, last_update):
     """Push a complete repository to the API"""
-    application.push(ctx.obj["base_path"], slug, mode, ctx.obj["env_file"], last_update)
+    if ctx.obj["user_mapping_path"]:
+        with ctx.obj["user_mapping_path"].open("r") as f:
+            user_lut = json.load(f)
+    else:
+        user_lut = None
+    application.push(
+        ctx.obj["base_path"], slug, mode, ctx.obj["env_file"], last_update, user_lut
+    )
 
 
 @main.command()

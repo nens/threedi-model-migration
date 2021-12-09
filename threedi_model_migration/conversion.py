@@ -38,7 +38,6 @@ def repository_to_schematisations(
     metadata: Optional[Dict[str, SchemaMeta]] = None,
     inpy_data: Optional[Dict[str, InpyMeta]] = None,
     org_lut: Optional[Dict[str, str]] = None,
-    user_lut: Optional[Dict[str, str]] = None,
 ) -> List[Schematisation]:
     """Apply logic to convert a repository to several schematisations
 
@@ -91,11 +90,6 @@ def repository_to_schematisations(
                 )
                 continue
 
-            # map commit_user
-            commit_user = revision.commit_user
-            if user_lut is not None:
-                commit_user = user_lut.get(commit_user, commit_user)
-
             schematisation.revisions.append(
                 SchemaRevision(
                     sqlite_path=sqlite.sqlite_path,
@@ -104,7 +98,7 @@ def repository_to_schematisations(
                     revision_hash=revision.revision_hash,
                     last_update=revision.last_update,
                     commit_msg=revision.commit_msg,
-                    commit_user=commit_user,
+                    commit_user=revision.commit_user,
                     sqlite=sqlite_file,
                     rasters=[x[1] for x in rasters if x is not None],
                 )
