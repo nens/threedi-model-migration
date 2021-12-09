@@ -66,7 +66,7 @@ def get_or_create_schematisation(
         delete_schematisation(api, resp.results[0].id)
     elif resp.count == 0 and mode is PushMode.incremental:
         raise NoSchematisation(
-            "Cannot incrementally update '{schematisation.slug}' as it does not exist."
+            f"Cannot incrementally update '{schematisation.slug}' as it does not exist."
         )
 
     logger.info(f"Creating schematisation '{schematisation.slug}'...")
@@ -92,7 +92,7 @@ def get_or_create_schematisation(
             if e.status == 400:
                 errors = json.loads(e.body)
                 if len(errors.get("created_by", [])) == 1:
-                    logger.warning(errors["created_by"])
+                    logger.info(errors["created_by"])
                     obj.created_by = None
                     continue  # try again
             raise e

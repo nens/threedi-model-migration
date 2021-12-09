@@ -5,8 +5,3 @@ services:
     image: rabbitmq:3.5.0
     ports:
       - "5672:5672"
-    # environment:
-    #   # Note these are for local dev environments only
-    #   RABBITMQ_DEFAULT_USER: "migrator"
-    #   RABBITMQ_DEFAULT_PASS: "supersecure"
-    #   RABBITMQ_DEFAULT_VHOST: "migration"

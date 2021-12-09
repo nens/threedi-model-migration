@@ -18,11 +18,12 @@ def consume(url, queue, func):
 
         $ amqp-publish -r my-queue -b my-repo-slug
         """
-        logger.info(f"Received {body}")
+        logger.info(f"Received AMQP message: {body}")
         try:
             func(slug=decode(body))
+            logger.info(f"Processed AMQP message: {body}")
         except Exception:
-            logger.exception(f"Error processing {body}")
+            logger.exception(f"Error processing AMQP message: {body}")
 
     # https://pika.readthedocs.io/en/stable/examples/blocking_consume_recover_multiple_hosts.html
     while True:
@@ -41,6 +42,6 @@ def consume(url, queue, func):
                 connection.close()
                 break
         except pika.exceptions.AMQPConnectionError:
-            logger.warning(f"Connection dropped, waiting 10 seconds to reconnect...")
+            logger.info("Connection dropped, waiting for 10 seconds to reconnect...")
             time.sleep(10)
             continue

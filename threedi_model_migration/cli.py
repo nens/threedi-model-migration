@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
     "-s",
     "--sentry_dsn",
     type=str,
-    help="An optional DSN for logging warnings and exception to Sentry",
+    help="An optional DSN for logging warnings and exceptions to Sentry",
 )
 @click.option(
     "--lfclear",
