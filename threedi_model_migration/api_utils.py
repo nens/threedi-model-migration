@@ -262,23 +262,39 @@ def commit_revision(
 
         if all(state == "uploaded" for state in states):
             break
-        elif not any(state == "created" for state in states):
-            # list files that have an unexpected state
-            files = [
-                raster.file
-                for raster in oa_revision.rasters
-                if raster.file.state not in ("uploaded", "created")
-            ]
-            if oa_revision.sqlite.file.state not in ("uploaded", "created"):
-                files = [oa_revision.sqlite.file] + files
-            logger.exception(
-                f"Files {[x.id for x in files]} have unexpected state. Skipping commit."
+        elif any(state == "created" for state in states):
+            logger.info(
+                f"Sleeping {wait_time} seconds to wait for the files to become 'uploaded'..."
             )
-            return
-        logger.info(
-            f"Sleeping {wait_time} seconds to wait for the files to become 'uploaded'..."
-        )
-        time.sleep(wait_time)
+            time.sleep(wait_time)
+            continue
+
+        # We have non expected states (probably an error in the upload processor)
+        file = oa_revision.sqlite.file
+        if file.state not in ("uploaded", "created"):
+            logger.exception(
+                f"File (sqlite) with pk={file.id} has unexpected state "
+                f"'{file.state}'. Skipping commit."
+            )
+            # Attempt cleanup (delete revision twice)
+            for _ in range(2):
+                try:
+                    api.schematisations_revisions_delete(
+                        rev_id, schema_id, {"number": oa_revision.number}
+                    )
+                except Exception:
+                    logger.exception(f"Error deleting revision {rev_id}")
+
+        for raster in oa_revision.rasters:
+            if raster.file.state in ("uploaded", "created"):
+                continue
+            logger.exception(
+                f"File (raster) with pk={raster.file.id} has unexpected state "
+                f"'{file.state}'. Omitting raster."
+            )
+            api.schematisations_revisions_rasters_delete(raster.id, rev_id, schema_id)
+        
+        break
     else:
         raise RuntimeError("Some files are still in 'created' state")
 
