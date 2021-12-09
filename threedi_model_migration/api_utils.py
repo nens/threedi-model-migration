@@ -4,6 +4,7 @@ from .file import RasterOptions
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
 from .zip_utils import deterministic_zip
+from enum import Enum
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from threedi_api_client.files import upload_file
@@ -31,22 +32,43 @@ import time
 logger = logging.getLogger(__name__)
 
 
+class PushMode(Enum):
+    full = "full"  # push all revisions; error if API has a different commit with same number
+    overwrite = "overwrite"  # always delete the API schematisation (for testing mostly)
+    incremental = (
+        "incremental"  # push newer revisions, increase revision number if necessary
+    )
+    never = "never"
+
+
+class NoSchematisation(Exception):
+    pass
+
+
 def get_or_create_schematisation(
-    api: V3BetaApi, schematisation: Schematisation, overwrite: bool = False
+    api: V3BetaApi,
+    schematisation: Schematisation,
+    mode: PushMode = PushMode.full,
 ) -> OASchematisation:
+    if mode is PushMode.never:
+        raise ValueError("Invalid push mode 'never'")
     resp = api.schematisations_list(
         slug=schematisation.slug, owner__unique_id=schematisation.metadata.owner
     )
-    if resp.count == 1 and not overwrite:
+    if resp.count == 1 and mode in {PushMode.full, PushMode.incremental}:
         logger.info(
             f"Schematisation '{schematisation.slug}' already exists, skipping creation."
         )
         return resp.results[0], False
-    elif resp.count == 1 and overwrite:
+    elif resp.count == 1 and mode is PushMode.overwrite:
         logger.info(
             f"Schematisation '{schematisation.name}' already exists, deleting..."
         )
         delete_schematisation(api, resp.results[0].id)
+    elif resp.count == 0 and mode is PushMode.incremental:
+        raise NoSchematisation(
+            f"Cannot incrementally update '{schematisation.slug}' as it does not exist."
+        )
 
     logger.info(f"Creating schematisation '{schematisation.slug}'...")
     obj = OASchematisation(
@@ -71,7 +93,7 @@ def get_or_create_schematisation(
             if e.status == 400:
                 errors = json.loads(e.body)
                 if len(errors.get("created_by", [])) == 1:
-                    logger.warning(errors["created_by"])
+                    logger.info(errors["created_by"])
                     obj.created_by = None
                     continue  # try again
             raise e
@@ -243,6 +265,8 @@ def commit_revision(
             f"Sleeping {wait_time} seconds to wait for the files to become 'uploaded'..."
         )
         time.sleep(wait_time)
+    else:
+        raise RuntimeError("Files did not receive the correct 'uploaded' state")
 
     # In the API, the 'user' is just a string and 'commit_user' is an FK to user
     user = revision.commit_user

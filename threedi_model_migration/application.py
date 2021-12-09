@@ -1,5 +1,6 @@
 """Main module."""
 from . import api_utils
+from .api_utils import PushMode
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
 from .json_utils import custom_json_serializer
@@ -48,15 +49,6 @@ class InspectMode(Enum):
     incremental = "incremental"  # retrieve the HEAD and inspect the new commits
     if_necessary = "if-necessary"  # if the inspect file is missing
     never = "never"  # assume inspection file is there
-
-
-class PushMode(Enum):
-    full = "full"  # push all revisions; error if API has a different commit with same number
-    overwrite = "overwrite"  # always delete the API schematisation (for testing mostly)
-    incremental = (
-        "incremental"  # push newer revisions, increase revision number if necessary
-    )
-    never = "never"
 
 
 class RepositoryNotFound(FileNotFoundError):
@@ -416,7 +408,9 @@ def push(
                     continue
 
             oa_schema, created = api_utils.get_or_create_schematisation(
-                api, schematisation, overwrite=(mode == PushMode.overwrite)
+                api,
+                schematisation,
+                mode=mode,
             )
             logger.info(f"Got schematisation with pk='{oa_schema.id}'.")
 
@@ -533,3 +527,13 @@ def patch_uuids(
                 default=custom_json_serializer,
             )
         logger.info(f"Patched repository {slug} (formerly: {uuid})")
+
+
+def consume_amqp(url, queue, slug_func):
+    """Wait for messages via AMQP and run batch() when necessary
+
+    The messages should be the repository slug in plain bytes.
+    """
+    from .amqp import consume
+
+    consume(url, queue, slug_func)

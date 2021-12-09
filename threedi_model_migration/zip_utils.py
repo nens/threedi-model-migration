@@ -4,16 +4,14 @@ from pathlib import Path
 from typing import BinaryIO
 from typing import List
 
-import os
 import stat
 import zipfile
 
 
 def _add_file(zip_file, path, zip_path=None):
-    permission = 0o555 if os.access(path, os.X_OK) else 0o444
     zip_info = zipfile.ZipInfo.from_file(path, zip_path)
-    zip_info.date_time = (1970, 1, 1, 0, 0, 0)
-    zip_info.external_attr = (stat.S_IFREG | permission) << 16
+    zip_info.date_time = (2000, 1, 1, 0, 0, 0)
+    zip_info.external_attr = (stat.S_IFREG | 0o444) << 16
     with open(path, "rb") as fp:
         zip_file.writestr(
             zip_info,
