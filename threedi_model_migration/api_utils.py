@@ -258,7 +258,7 @@ def commit_revision(
     for wait_time in [0.5, 1.0, 2.0, 10.0]:
         oa_revision = api.schematisations_revisions_read(rev_id, schema_id)
         states = [oa_revision.sqlite.file.state]
-        states.append([raster.file.state for raster in oa_revision.rasters])
+        states.extend([raster.file.state for raster in oa_revision.rasters])
 
         if all(state == "uploaded" for state in states):
             break
