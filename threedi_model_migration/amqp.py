@@ -2,6 +2,7 @@ from .hg import decode
 
 import logging
 import pika
+import time
 
 
 logger = logging.getLogger(__name__)
@@ -40,5 +41,6 @@ def consume(url, queue, func):
                 connection.close()
                 break
         except pika.exceptions.AMQPConnectionError:
-            # Reconnect on all connection errors
+            logger.warning(f"Connection dropped, waiting 10 seconds to reconnect...")
+            time.sleep(10)
             continue

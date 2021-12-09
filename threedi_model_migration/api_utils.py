@@ -260,6 +260,8 @@ def commit_revision(
             f"Sleeping {wait_time} seconds to wait for the files to become 'uploaded'..."
         )
         time.sleep(wait_time)
+    else:
+        raise RuntimeError("Files did not receive the correct 'uploaded' state")
 
     obj = OACommit(
         commit_message=revision.commit_msg,

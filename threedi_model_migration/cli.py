@@ -48,6 +48,12 @@ logger = logging.getLogger(__name__)
     help="An optional path to a json mapping Mercurial users to API usernames",
 )
 @click.option(
+    "-s",
+    "--sentry_dsn",
+    type=str,
+    help="An optional DSN for logging warnings and exception to Sentry",
+)
+@click.option(
     "--lfclear",
     type=bool,
     default=False,
@@ -67,6 +73,7 @@ def main(
     metadata_path,
     inpy_path,
     user_mapping_path,
+    sentry_dsn,
     env_file,
     lfclear,
     verbosity,
@@ -79,6 +86,9 @@ def main(
     ctx.obj["env_file"] = env_file
     ctx.obj["user_mapping_path"] = user_mapping_path
     ctx.obj["lfclear"] = lfclear
+    if sentry_dsn:
+        import sentry_sdk
+        sentry_sdk.init(sentry_dsn)
 
     # setup logging
     LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
@@ -431,9 +441,8 @@ def consume(
                 push_mode,
             )
         finally:
-            pass
             # Always cleanup
-            # application.delete(base_path, slug)
+            application.delete(base_path, slug)
 
     application.consume_amqp(url, queue, wrapped_batch_func)
 
