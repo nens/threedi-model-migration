@@ -5,6 +5,7 @@ from .metadata import load_modeldatabank
 from .repository import DEFAULT_REMOTE
 
 import click
+import configparser
 import fnmatch
 import json
 import logging
@@ -15,13 +16,49 @@ import sys
 logger = logging.getLogger(__name__)
 
 
+def configure(ctx, param, filename):
+    # Source: https://jwodder.github.io/kbits/posts/click-config/
+    cfg = configparser.ConfigParser()
+    cfg.read(filename)
+    try:
+        options = dict(cfg["options"])
+    except KeyError:
+        options = {}
+    ctx.default_map = options
+
+
 @click.group()
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(dir_okay=False),
+    default="config.ini",
+    callback=configure,
+    is_eager=True,
+    expose_value=False,
+    help="Read option defaults from the specified INI file",
+    show_default=True,
+)
 @click.option(
     "-b",
     "--base_path",
     type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
     default=pathlib.Path.cwd,
     help="Local root that contains the repositories",
+)
+@click.option(
+    "-r",
+    "--remote",
+    type=str,
+    default=DEFAULT_REMOTE,
+    help="Remote domain that contains the repositories to download",
+)
+@click.option(
+    "-u/-nu",
+    "--uuid/--not-uuid",
+    type=bool,
+    default=False,
+    help="Whether to use UUIDs instead of repository slugs in the remote",
 )
 @click.option(
     "-m",
@@ -46,6 +83,12 @@ logger = logging.getLogger(__name__)
     "--user_mapping_path",
     type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
     help="An optional path to a json mapping Mercurial users to API usernames",
+)
+@click.option(
+    "-o",
+    "--owner_blacklist_path",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An optional path to a file listing unique_ids of organisations to ignore",
 )
 @click.option(
     "-s",
@@ -77,6 +120,9 @@ def main(
     env_file,
     lfclear,
     verbosity,
+    owner_blacklist_path,
+    remote,
+    uuid,
 ):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
@@ -86,6 +132,12 @@ def main(
     ctx.obj["env_file"] = env_file
     ctx.obj["user_mapping_path"] = user_mapping_path
     ctx.obj["lfclear"] = lfclear
+    ctx.obj["owner_blacklist_path"] = owner_blacklist_path
+    ctx.obj["remote"] = remote
+    ctx.obj["uuid"] = uuid
+
+    print(dict(ctx.obj))
+    return
     if sentry_dsn:
         import sentry_sdk
 
@@ -108,20 +160,6 @@ def main(
     type=str,
 )
 @click.option(
-    "-r",
-    "--remote",
-    type=str,
-    default=DEFAULT_REMOTE,
-    help="Remote domain that contains the repositories to download",
-)
-@click.option(
-    "-u/-nu",
-    "--uuid/--not-uuid",
-    type=bool,
-    default=False,
-    help="Whether to use UUIDs instead of repository slugs in the remote",
-)
-@click.option(
     "-i/-ni",
     "--ifnewer/--not-ifnewer",
     type=bool,
@@ -129,19 +167,19 @@ def main(
     help="Whether to skip the download if the inspection file is up to date",
 )
 @click.pass_context
-def download(ctx, slug, remote, uuid, ifnewer):
+def download(ctx, slug, ifnewer):
     """Clones / pulls a repository"""
-    if uuid and not ctx.obj["metadata_path"]:
+    if ctx.obj["uuid"] and not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
-    if uuid:
+    if ctx.obj["uuid"]:
         metadata = load_modeldatabank(ctx.obj["metadata_path"])
     else:
         metadata = None
     application.download(
         ctx.obj["base_path"],
         slug,
-        remote,
-        uuid,
+        ctx.obj["remote"],
+        ctx.obj["uuid"],
         metadata,
         ctx.obj["lfclear"],
         ifnewer,
@@ -224,20 +262,6 @@ def plan(ctx, slug, quiet):
 
 @main.command()
 @click.option(
-    "-r",
-    "--remote",
-    type=str,
-    default=DEFAULT_REMOTE,
-    help="Remote domain that contains the repositories to download",
-)
-@click.option(
-    "-u/-nu",
-    "--uuid/--not-uuid",
-    type=bool,
-    default=False,
-    help="Whether to use UUIDs instead of repository slugs in the remote",
-)
-@click.option(
     "-l",
     "--last_update",
     type=click.DateTime(formats=["%Y-%m-%d"]),
@@ -271,23 +295,14 @@ def plan(ctx, slug, quiet):
     multiple=True,
     help="Pattern(s) to exclude specific repository slugs (takes precedence over include)",
 )
-@click.option(
-    "-o",
-    "--owner_blacklist_path",
-    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
-    help="An optional path to a file listing unique_ids of organisations to ignore",
-)
 @click.pass_context
 def batch(
     ctx,
-    remote,
-    uuid,
     last_update,
     inspect_mode,
     push_mode,
     include,
     exclude,
-    owner_blacklist_path,
 ):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
@@ -295,7 +310,9 @@ def batch(
     env_file = ctx.obj["env_file"]
     if not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
-    metadata = load_modeldatabank(ctx.obj["metadata_path"], owner_blacklist_path)
+    metadata = load_modeldatabank(
+        ctx.obj["metadata_path"], ctx.obj["owner_blacklist_path"]
+    )
     if ctx.obj["inpy_path"]:
         inpy_data, org_lut = load_inpy(ctx.obj["inpy_path"])
     else:
@@ -325,8 +342,8 @@ def batch(
                 org_lut,
                 user_lut,
                 slug,
-                remote,
-                uuid,
+                ctx.obj["remote"],
+                ctx.obj["uuid"],
                 last_update,
                 inspect_mode,
                 push_mode,
@@ -350,20 +367,6 @@ def batch(
     default="migration",
 )
 @click.option(
-    "-r",
-    "--remote",
-    type=str,
-    default=DEFAULT_REMOTE,
-    help="Remote domain that contains the repositories to download",
-)
-@click.option(
-    "-u/-nu",
-    "--uuid/--not-uuid",
-    type=bool,
-    default=False,
-    help="Whether to use UUIDs instead of repository slugs in the remote",
-)
-@click.option(
     "-l",
     "--last_update",
     type=click.DateTime(formats=["%Y-%m-%d"]),
@@ -383,23 +386,14 @@ def batch(
     default=application.PushMode.incremental.value,
     help="Controls when to push",
 )
-@click.option(
-    "-o",
-    "--owner_blacklist_path",
-    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
-    help="An optional path to a file listing unique_ids of organisations to ignore",
-)
 @click.pass_context
 def consume(
     ctx,
     url,
     queue,
-    remote,
-    uuid,
     last_update,
     inspect_mode,
     push_mode,
-    owner_blacklist_path,
 ):
     """Downloads, inspects, and plans all repositories from the metadata file"""
     base_path = ctx.obj["base_path"]
@@ -407,7 +401,9 @@ def consume(
     env_file = ctx.obj["env_file"]
     if not ctx.obj["metadata_path"]:
         raise ValueError("Please supply metadata_path")
-    metadata = load_modeldatabank(ctx.obj["metadata_path"], owner_blacklist_path)
+    metadata = load_modeldatabank(
+        ctx.obj["metadata_path"], ctx.obj["owner_blacklist_path"]
+    )
     if ctx.obj["inpy_path"]:
         inpy_data, org_lut = load_inpy(ctx.obj["inpy_path"])
     else:
@@ -434,8 +430,8 @@ def consume(
                 org_lut,
                 user_lut,
                 slug,
-                remote,
-                uuid,
+                ctx.obj["remote"],
+                ctx.obj["uuid"],
                 last_update,
                 inspect_mode,
                 push_mode,
