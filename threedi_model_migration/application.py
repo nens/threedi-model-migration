@@ -181,7 +181,6 @@ def plan(
     slug: str,
     metadata_path: Optional[Path] = None,
     inpy_path: Optional[Path] = None,
-    user_mapping_path: Optional[Path] = None,
     quiet: bool = True,
 ):
     """Create a migration plan and write results to JSON.
@@ -197,17 +196,12 @@ def plan(
     metadata = load_modeldatabank(metadata_path) if metadata_path else None
     inpy_data, org_lut = load_inpy(inpy_path) if inpy_path else (None, None)
 
-    with user_mapping_path.open("r") as f:
-        user_lut = json.load(f)
-
     with (inspection_path / f"{slug}.json").open("r") as f:
         repository = json.load(f, object_hook=custom_json_object_hook)
 
     assert repository.slug == slug
 
-    result = repository_to_schematisations(
-        repository, metadata, inpy_data, org_lut, user_lut
-    )
+    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
     if not quiet:
         print(f"Schematisation count: {result['count']}")
 
@@ -273,9 +267,7 @@ def batch(
 
     # copy of application.plan()
     logger.info(f"Planning {slug}...")
-    result = repository_to_schematisations(
-        repository, metadata, inpy_data, org_lut, user_lut
-    )
+    result = repository_to_schematisations(repository, metadata, inpy_data, org_lut)
     with (inspection_path / f"{repository.slug}.plan.json").open("w") as f:
         json.dump(
             result,
@@ -292,6 +284,7 @@ def batch(
                 push_mode,
                 env_file=env_file,
                 last_update=last_update,
+                user_lut=user_lut,
             )
         except FileNotFoundError:
             # Try again, after downloading the repo
@@ -387,6 +380,7 @@ def push(
     mode: Union[PushMode, str],
     env_file: Optional[Path] = None,
     last_update: Optional[datetime] = None,
+    user_lut: Optional[Dict[str, str]] = None,
 ):
     """Aggregate all plans into 1 repository and 1 schematisation CSV"""
     mode = PushMode(mode)
@@ -454,7 +448,9 @@ def push(
                     api_utils.upload_raster(
                         api, oa_rev.id, oa_schema.id, repository.path, raster
                     )
-                api_utils.commit_revision(api, oa_rev.id, oa_schema.id, revision)
+                api_utils.commit_revision(
+                    api, oa_rev.id, oa_schema.id, revision, user_lut=user_lut
+                )
 
 
 def patch_uuids(
