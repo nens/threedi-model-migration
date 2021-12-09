@@ -103,6 +103,11 @@ def configure(ctx, param, filename):
     help="Specify to clear the largefiles usercache after a download",
 )
 @click.option(
+    "-a",
+    "--amqp_url",
+    type=str,
+)
+@click.option(
     "-v",
     "--verbosity",
     type=int,
@@ -123,6 +128,7 @@ def main(
     owner_blacklist_path,
     remote,
     uuid,
+    amqp_url,
 ):
     """Console script for threedi_model_migration."""
     ctx.ensure_object(dict)
@@ -135,9 +141,8 @@ def main(
     ctx.obj["owner_blacklist_path"] = owner_blacklist_path
     ctx.obj["remote"] = remote
     ctx.obj["uuid"] = uuid
+    ctx.obj["amqp_url"] = amqp_url
 
-    print(dict(ctx.obj))
-    return
     if sentry_dsn:
         import sentry_sdk
 
@@ -357,14 +362,8 @@ def batch(
 
 @main.command()
 @click.argument(
-    "url",
+    "queue",
     type=str,
-)
-@click.option(
-    "-q",
-    "--queue",
-    type=str,
-    default="migration",
 )
 @click.option(
     "-l",
@@ -389,7 +388,6 @@ def batch(
 @click.pass_context
 def consume(
     ctx,
-    url,
     queue,
     last_update,
     inspect_mode,
@@ -440,7 +438,7 @@ def consume(
             # Always cleanup
             application.delete(base_path, slug)
 
-    application.consume_amqp(url, queue, wrapped_batch_func)
+    application.consume_amqp(ctx.obj["amqp_url"], queue, wrapped_batch_func)
 
 
 @main.command()
