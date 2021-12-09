@@ -48,6 +48,12 @@ logger = logging.getLogger(__name__)
     help="An optional path to a json mapping Mercurial users to API usernames",
 )
 @click.option(
+    "-s",
+    "--sentry_dsn",
+    type=str,
+    help="An optional DSN for logging warnings and exceptions to Sentry",
+)
+@click.option(
     "--lfclear",
     type=bool,
     default=False,
@@ -67,6 +73,7 @@ def main(
     metadata_path,
     inpy_path,
     user_mapping_path,
+    sentry_dsn,
     env_file,
     lfclear,
     verbosity,
@@ -79,6 +86,10 @@ def main(
     ctx.obj["env_file"] = env_file
     ctx.obj["user_mapping_path"] = user_mapping_path
     ctx.obj["lfclear"] = lfclear
+    if sentry_dsn:
+        import sentry_sdk
+
+        sentry_sdk.init(sentry_dsn)
 
     # setup logging
     LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
@@ -326,6 +337,115 @@ def batch(
         finally:
             # Always cleanup
             application.delete(base_path, slug)
+
+
+@main.command()
+@click.argument(
+    "url",
+    type=str,
+)
+@click.option(
+    "-q",
+    "--queue",
+    type=str,
+    default="migration",
+)
+@click.option(
+    "-r",
+    "--remote",
+    type=str,
+    default=DEFAULT_REMOTE,
+    help="Remote domain that contains the repositories to download",
+)
+@click.option(
+    "-u/-nu",
+    "--uuid/--not-uuid",
+    type=bool,
+    default=False,
+    help="Whether to use UUIDs instead of repository slugs in the remote",
+)
+@click.option(
+    "-l",
+    "--last_update",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Revisions older than this are filtered",
+)
+@click.option(
+    "-i",
+    "--inspect_mode",
+    type=click.Choice([x.value for x in application.InspectMode], case_sensitive=False),
+    default=application.InspectMode.incremental.value,
+    help="Controls when to inspect",
+)
+@click.option(
+    "-p",
+    "--push_mode",
+    type=click.Choice([x.value for x in application.PushMode], case_sensitive=False),
+    default=application.PushMode.incremental.value,
+    help="Controls when to push",
+)
+@click.option(
+    "-o",
+    "--owner_blacklist_path",
+    type=click.Path(exists=True, readable=True, path_type=pathlib.Path),
+    help="An optional path to a file listing unique_ids of organisations to ignore",
+)
+@click.pass_context
+def consume(
+    ctx,
+    url,
+    queue,
+    remote,
+    uuid,
+    last_update,
+    inspect_mode,
+    push_mode,
+    owner_blacklist_path,
+):
+    """Downloads, inspects, and plans all repositories from the metadata file"""
+    base_path = ctx.obj["base_path"]
+    lfclear = ctx.obj["lfclear"]
+    env_file = ctx.obj["env_file"]
+    if not ctx.obj["metadata_path"]:
+        raise ValueError("Please supply metadata_path")
+    metadata = load_modeldatabank(ctx.obj["metadata_path"], owner_blacklist_path)
+    if ctx.obj["inpy_path"]:
+        inpy_data, org_lut = load_inpy(ctx.obj["inpy_path"])
+    else:
+        inpy_data = org_lut = None
+    if ctx.obj["user_mapping_path"]:
+        with ctx.obj["user_mapping_path"].open("r") as f:
+            user_lut = json.load(f)
+    else:
+        user_lut = None
+
+    def wrapped_batch_func(slug):
+        if slug not in metadata:
+            logger.warning(
+                f"Skipping '{slug}': unknown slug or blacklisted organisation'"
+            )
+            return
+        try:
+            application.batch(
+                base_path,
+                metadata,
+                inpy_data,
+                env_file,
+                lfclear,
+                org_lut,
+                user_lut,
+                slug,
+                remote,
+                uuid,
+                last_update,
+                inspect_mode,
+                push_mode,
+            )
+        finally:
+            # Always cleanup
+            application.delete(base_path, slug)
+
+    application.consume_amqp(url, queue, wrapped_batch_func)
 
 
 @main.command()

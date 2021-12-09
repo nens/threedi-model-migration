@@ -7,6 +7,12 @@ History
 
 - Add user_mapping_path to map Mercurial to API users.
 
+- Added an amqp consumer.
+
+- Fixed bug in sqlite zipping.
+
+- Added sentry support.
+
 
 0.4.0 (2021-12-08)
 ------------------
