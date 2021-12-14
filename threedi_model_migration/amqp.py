@@ -28,7 +28,7 @@ def consume(url, queue, func):
     # https://pika.readthedocs.io/en/stable/examples/blocking_consume_recover_multiple_hosts.html
     while True:
         try:
-            connection = pika.BlockingConnection(pika.URLParameters(host=url))
+            connection = pika.BlockingConnection(pika.URLParameters(url))
             try:
                 channel = connection.channel()
                 channel.queue_declare(queue=queue)
