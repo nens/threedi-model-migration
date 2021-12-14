@@ -85,7 +85,7 @@ def repository_to_schematisations(
             if sqlite_revision_nr != revision.revision_nr and not any(
                 x[0] == revision.revision_nr for x in rasters
             ):
-                logger.info(
+                logger.debug(
                     f"Skipped rev #{revision.revision_nr} in '{schematisation}'."
                 )
                 continue

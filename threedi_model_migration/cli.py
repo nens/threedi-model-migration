@@ -114,6 +114,12 @@ def configure(ctx, param, filename):
     default=1,
     help="Logging verbosity (0: error, 1: warning, 2: info, 3: debug)",
 )
+@click.option(
+    "-l",
+    "--logfile",
+    type=click.Path(writable=True, path_type=pathlib.Path),
+    help="An optional path to a file to output logging into",
+)
 @click.pass_context
 def main(
     ctx,
@@ -125,6 +131,7 @@ def main(
     env_file,
     lfclear,
     verbosity,
+    logfile,
     owner_blacklist_path,
     remote,
     uuid,
@@ -142,7 +149,6 @@ def main(
     ctx.obj["remote"] = remote
     ctx.obj["uuid"] = uuid
     ctx.obj["amqp_url"] = amqp_url
-
     if sentry_dsn:
         from .sentry import setup_sentry
 
@@ -152,11 +158,15 @@ def main(
     LOGGING_LUT = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
     logger = logging.getLogger("threedi_model_migration")
     logger.setLevel(LOGGING_LUT[verbosity])
-    ch = logging.StreamHandler()
-    ch.setLevel(LOGGING_LUT[verbosity])
     formatter = logging.Formatter("%(asctime)s: %(levelname)s - %(message)s")
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+
+    if logfile is None:
+        handler = logging.StreamHandler()
+    else:
+        handler = logging.FileHandler(logfile)
+    handler.setLevel(LOGGING_LUT[verbosity])
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
 @main.command()

@@ -13,6 +13,8 @@ History
 
 - Added sentry support.
 
+- Add logfile cli argument.
+
 
 0.4.0 (2021-12-08)
 ------------------
