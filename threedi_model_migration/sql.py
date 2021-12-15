@@ -43,6 +43,10 @@ for option in (
     RASTER_SQL_MAP[option] = " ".join([option.name, GROUNDWATER_SQL, ORDER_BY])
 
 SETTINGS_SQL = " ".join(["id, name", GLOBAL_SETTINGS_SQL, ORDER_BY])
+DELETE_GLOBAL_SETTING = "DELETE FROM v2_global_settings WHERE id <> {settings_id}"
+DELETE_AGG_SETTING = (
+    "DELETE FROM v2_aggregation_settings WHERE global_settings_id <> {settings_id}"
+)
 
 
 def select(full_path, query):
@@ -55,3 +59,18 @@ def select(full_path, query):
         con.close()
 
     return records
+
+
+def filter_global_settings(full_path, settings_id):
+    """Remove global settings, keeping only `settings_id`"""
+    settings_id = int(settings_id)   # prevents SQL injection
+    con = sqlite3.connect(full_path)
+    try:
+        with con:
+            con.execute(DELETE_GLOBAL_SETTING.format(settings_id=settings_id))
+            try:
+                con.execute(DELETE_AGG_SETTING.format(settings_id=settings_id))
+            except sqlite3.OperationalError:
+                pass
+    finally:
+        con.close()

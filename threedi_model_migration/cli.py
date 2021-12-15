@@ -237,7 +237,7 @@ def delete(ctx, slug):
     default=False,
 )
 @click.pass_context
-def inspect(ctx, slug, inspect_mode, last_update, quiet):
+def inspect(ctx, slug, mode, last_update, quiet):
     """Inspects revisions, sqlites, and global settings in a repository"""
     if not quiet:
         out = click.get_text_stream("stdout", errors="surrogateescape")
@@ -246,7 +246,7 @@ def inspect(ctx, slug, inspect_mode, last_update, quiet):
     application.inspect(
         ctx.obj["base_path"],
         slug,
-        inspect_mode,
+        mode,
         last_update,
         out,
     )

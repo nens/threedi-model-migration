@@ -1,4 +1,3 @@
-from .file import File
 from .file import Raster
 from .file import RasterOptions
 from .schematisation import SchemaRevision
@@ -191,29 +190,26 @@ def get_or_create_revision(
     return resp, True
 
 
-def upload_sqlite(
-    api: V3BetaApi, rev_id: int, schema_id: int, repo_path: Path, sqlite: File
-):
-    """Note that this does not make use of deduplication, as"""
-    logger.info(f"Creating {str(sqlite.path)}...")
+def upload_sqlite(api: V3BetaApi, rev_id: int, schema_id: int, sqlite_path: Path):
+    logger.info(f"Creating {str(sqlite_path.name)}...")
 
     # Sqlite files are zipped; the md5 sum is that of the zipped file (so: recompute)
     with SpooledTemporaryFile(mode="w+b") as f:
-        deterministic_zip(f, [repo_path / sqlite.path])
+        deterministic_zip(f, [sqlite_path])
         f.seek(0)
         md5 = hashlib.md5(f.read())
         f.seek(0)
         obj = OASqlite(
-            filename=sqlite.path.stem + ".zip",
+            filename=sqlite_path.stem + ".zip",
             md5sum=md5.hexdigest(),
         )
         upload = api.schematisations_revisions_sqlite_upload(rev_id, schema_id, obj)
         if upload.put_url is None:
             logger.info(
-                f"Sqlite '{str(sqlite.path)}' already existed, skipping upload."
+                f"Sqlite '{str(sqlite_path.name)}' already existed, skipping upload."
             )
         else:
-            logger.info(f"Uploading '{str(sqlite.path)}'...")
+            logger.info(f"Uploading '{str(sqlite_path.name)}'...")
             upload_fileobj(upload.put_url, f, md5=md5.digest())
 
 
