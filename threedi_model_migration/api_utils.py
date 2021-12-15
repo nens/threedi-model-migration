@@ -293,7 +293,7 @@ def commit_revision(
                 f"'{file.state}'. Omitting raster."
             )
             api.schematisations_revisions_rasters_delete(raster.id, rev_id, schema_id)
-        
+
         break
     else:
         raise RuntimeError("Some files are still in 'created' state")

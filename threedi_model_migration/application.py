@@ -1,5 +1,6 @@
 """Main module."""
 from . import api_utils
+from .api_utils import NoSchematisation
 from .api_utils import PushMode
 from .conversion import repository_to_schematisations
 from .json_utils import custom_json_object_hook
@@ -296,8 +297,10 @@ def batch(
                 metadata,
                 lfclear,
             )
-        else:
-            break
+            continue
+        except NoSchematisation as e:
+            logger.warning(str(e))
+        break
 
     logger.info(f"Done processing {slug}.")
 

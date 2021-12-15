@@ -15,6 +15,8 @@ History
 
 - Add logfile cli argument.
 
+- Do not emit errors if a schematisation does not exist in the API.
+
 
 0.4.0 (2021-12-08)
 ------------------
