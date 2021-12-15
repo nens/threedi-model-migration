@@ -2,7 +2,7 @@
 History
 =======
 
-0.4.1 (unreleased)
+0.5.0 (2021-12-15)
 ------------------
 
 - Add user_mapping_path to map Mercurial to API users.
