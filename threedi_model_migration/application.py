@@ -448,7 +448,7 @@ def push(
                 repository.checkout(revision.revision_hash)
 
                 with tempfile.TemporaryDirectory(dir=repository.path.parent) as tmpdir:
-                    tmp_sqlite_path = tmpdir / revision.sqlite.path.name
+                    tmp_sqlite_path = Path(tmpdir) / revision.sqlite.path.name
                     shutil.copyfile(
                         repository.path / revision.sqlite.path, tmp_sqlite_path
                     )
