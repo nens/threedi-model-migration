@@ -1,5 +1,6 @@
 """Main module."""
 from . import api_utils
+from . import sql
 from .api_utils import NoSchematisation
 from .api_utils import PushMode
 from .conversion import repository_to_schematisations
@@ -29,6 +30,7 @@ import dataclasses
 import json
 import logging
 import shutil
+import tempfile
 
 
 logger = logging.getLogger(__name__)
@@ -444,9 +446,18 @@ def push(
                         f"{repository} does not exist locally, please download it first."
                     )
                 repository.checkout(revision.revision_hash)
-                api_utils.upload_sqlite(
-                    api, oa_rev.id, oa_schema.id, repository.path, revision.sqlite
-                )
+
+                with tempfile.TemporaryDirectory(dir=repository.path.parent) as tmpdir:
+                    tmp_sqlite_path = tmpdir / revision.sqlite.path.name
+                    shutil.copyfile(
+                        repository.path / revision.sqlite.path, tmp_sqlite_path
+                    )
+                    sql.filter_global_settings(
+                        tmp_sqlite_path, schematisation.settings_id
+                    )
+                    api_utils.upload_sqlite(
+                        api, oa_rev.id, oa_schema.id, tmp_sqlite_path
+                    )
                 for raster in revision.rasters:
                     api_utils.upload_raster(
                         api, oa_rev.id, oa_schema.id, repository.path, raster

@@ -5,7 +5,7 @@ History
 0.5.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Filter global settings before sending sqlites to the API.
 
 
 0.5.0 (2021-12-15)
