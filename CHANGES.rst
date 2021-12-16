@@ -2,7 +2,7 @@
 History
 =======
 
-0.5.1 (unreleased)
+0.6.0 (2021-12-16)
 ------------------
 
 - Filter global settings before sending sqlites to the API.
