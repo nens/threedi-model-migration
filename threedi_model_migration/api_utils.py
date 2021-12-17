@@ -185,7 +185,7 @@ def get_or_create_revision(
     logger.info(f"Creating revision {revision.revision_nr}...")
     obj = OACreateRevision(empty=True)
     if set_revision_nr:
-        obj.revision_nr = revision.revision_nr
+        obj.number = revision.revision_nr
     resp = api.schematisations_revisions_create(schema_id, obj)
     return resp, True
 
