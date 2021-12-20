@@ -2,7 +2,7 @@
 History
 =======
 
-0.6.1 (unreleased)
+0.6.1 (2021-12-20)
 ------------------
 
 - Fix revision number setting.
