@@ -5,7 +5,7 @@ History
 0.6.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix revision number setting.
 
 
 0.6.0 (2021-12-16)
