@@ -216,16 +216,12 @@ def upload_sqlite(api: V3BetaApi, rev_id: int, schema_id: int, sqlite_path: Path
 def upload_raster(
     api: V3BetaApi, rev_id: int, schema_id: int, repo_path: Path, raster: Raster
 ):
-    raster_type = RasterOptions(raster.raster_type)
-    if raster_type is RasterOptions.dem_file:
-        raster_type = "dem_raw_file"
-    else:
-        raster_type = raster_type.value
+    raster_type = RasterOptions(raster.raster_type).value
     logger.info(f"Creating '{raster_type}' raster...")
     obj = OARaster(
         name=raster.path.name,
         md5sum=raster.md5,
-        type=raster_type,
+        type=raster_type
     )
     resp = api.schematisations_revisions_rasters_create(rev_id, schema_id, obj)
     if resp.file and resp.file.state == "uploaded":

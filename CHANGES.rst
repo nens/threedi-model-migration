@@ -5,7 +5,7 @@ History
 0.6.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Use `dem_file` instead of `dem_raw_file` for schematisation revisions.
 
 
 0.6.1 (2021-12-20)
