@@ -44,10 +44,7 @@ class Schematisation:
 
     @property
     def name(self):
-        return (
-            f"{self.repo_slug} - {self.sqlite_name} - "
-            f"{self.settings_id} {self.settings_name}"
-        )[:256]
+        return f"{self.repo_slug} - {self.sqlite_name}_{self.settings_name}"[:256]
 
     @property
     def slug(self):

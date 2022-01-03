@@ -5,7 +5,7 @@ History
 0.6.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Adapt schematisation name to be more similar to the old convention.
 
 
 0.6.1 (2021-12-20)
