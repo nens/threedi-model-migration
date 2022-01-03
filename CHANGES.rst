@@ -5,7 +5,10 @@ History
 0.6.2 (unreleased)
 ------------------
 
-- Adapt schematisation name to be more similar to the old convention.
+- Adapt schematisation name and slug to be more similar to the old convention and to
+  fix slug uniqueness issues.
+
+- Changed Schematisation.sqlite_name to Schematisation.sqlite_path.
 
 
 0.6.1 (2021-12-20)
