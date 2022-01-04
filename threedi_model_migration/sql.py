@@ -47,6 +47,7 @@ DELETE_GLOBAL_SETTING = "DELETE FROM v2_global_settings WHERE id <> {settings_id
 DELETE_AGG_SETTING = (
     "DELETE FROM v2_aggregation_settings WHERE global_settings_id <> {settings_id}"
 )
+VERSION_SQL = "south_migrationhistory.id FROM south_migrationhistory ORDER BY south_migrationhistory.id DESC LIMIT 1"
 
 
 def select(full_path, query):

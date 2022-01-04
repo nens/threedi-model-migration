@@ -5,7 +5,7 @@ History
 0.7.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Extract sqlite version in inspect.
 
 
 0.7.1 (2022-01-04)
