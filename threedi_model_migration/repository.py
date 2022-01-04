@@ -6,6 +6,7 @@ from .file import RasterOptions
 from .sql import RASTER_SQL_MAP
 from .sql import select
 from .sql import SETTINGS_SQL
+from .sql import VERSION_SQL
 from copy import copy
 from datetime import datetime
 from pathlib import Path
@@ -50,6 +51,15 @@ class RepoSettings:
 class RepoSqlite:
     sqlite_path: Path  # relative path within repository
     settings: Optional[List[RepoSettings]] = None
+    version: Optional[int] = None
+
+    def set_version(self, repository: "Repository"):
+        """Extract the latest migration id. Assumes the file is present."""
+        full_path = repository.path / self.sqlite_path
+        try:
+            ((self.version,),) = select(full_path, VERSION_SQL)
+        except (sqlite3.OperationalError, sqlite3.DatabaseError, ValueError):
+            logger.warning(f"No version found in {self}")
 
     def get_settings(
         self,
@@ -123,6 +133,8 @@ class RepoRevision:
                 for path in sorted(glob)
                 if path.parts[0] != ".hglf"
             ]
+            for sqlite in self.sqlites:
+                sqlite.set_version(repository=repository)
             # also compute hashes now we have the checkout
             for file in self.changes:
                 file.compute_md5(base_path=base)
