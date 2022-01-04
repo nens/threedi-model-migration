@@ -62,14 +62,16 @@ class Schematisation:
         - v2_bergermeer - bergermeer_Bergermeer (1, directory: model)
         """
         # The 'mdu_name' is formatted exactly like inpy does for threedimodels
-        mdu_name = f"{self.sqlite_path.stem}_{self.settings_name}"
+        settings_name = self.settings_name if self.settings_name else self.settings_id
+        mdu_name = f"{self.sqlite_path.stem}_{settings_name}"
         # To make the name unique, include the containing dir and settings id as
         # extra info between parentheses
         if str(self.sqlite_path.parent) != ".":
             extra_info = f", directory: {self.sqlite_path.parent}"
         else:
             extra_info = ""
-        return (f"{self.repo_slug} - {mdu_name} ({self.settings_id}{extra_info})")[:256]
+        name = f"{self.repo_slug} - {mdu_name} ({self.settings_id}{extra_info})"
+        return name[:256]
 
     @property
     def slug(self):
