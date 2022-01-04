@@ -4,6 +4,7 @@ from .metadata import SchemaMeta
 from .repository import Repository
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
+from .text_utils import slugify
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict
@@ -53,9 +54,20 @@ def repository_to_schematisations(
 
     # partition into unique (sqlite_path, settings_id) combinations
     for revision in sorted(repository.revisions, key=lambda x: -x.revision_nr):
+        seen = set()
         for sqlite in revision.sqlites or []:
+            # slugify sqlite paths in the unique key, warn if this yields duplicates
+            path_slug = slugify(sqlite.sqlite_path)
+            if path_slug in seen:
+                logger.warning(
+                    f"Revision #{revision.revision_nr}' in {repository} contains "
+                    f"multiple paths that yield the same slug, skipping "
+                    f"{sqlite.sqlite_path}"
+                )
+                continue
+            seen.add(path_slug)
             for settings in sqlite.settings or []:
-                key = (sqlite.sqlite_path, settings.settings_id)
+                key = (path_slug, settings.settings_id)
                 combinations[key].append((revision, sqlite, settings))
 
     schemas = []
@@ -63,7 +75,7 @@ def repository_to_schematisations(
         _, last_sqlite, last_settings = _combinations[0]
         schematisation = Schematisation(
             repo_slug=repository.slug,
-            sqlite_name=str(last_sqlite.sqlite_path).split(".sqlite")[0],
+            sqlite_path=last_sqlite.sqlite_path,
             settings_id=last_settings.settings_id,
             settings_name=last_settings.settings_name,
             revisions=[],
@@ -114,10 +126,19 @@ def repository_to_schematisations(
 
         schemas.append(schematisation)
 
-    # check schematisation slug uniqueness
+    # check schematisation slug uniqueness (logic is mostly for nice error feedback)
     slugs = [s.slug for s in schemas]
-    if len(slugs) != len(set(slugs)):
-        raise RuntimeError("Non-unique schematisation slugs!")
+    seen = set()
+    duplicates = [x for x in slugs if x in seen or seen.add(x)]
+    if len(duplicates) > 0:
+        groups = {}
+        for duplicate in duplicates:
+            groups[duplicate] = [
+                (s.repo_slug, s.sqlite_path, s.settings_name, s.settings_id)
+                for s in schemas
+                if s.slug == duplicate
+            ]
+        raise RuntimeError(f"Non-unique schematisation slugs: {groups}")
 
     # extract unique files
     files_in_schema = set()

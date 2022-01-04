@@ -63,7 +63,7 @@ def select(full_path, query):
 
 def filter_global_settings(full_path, settings_id):
     """Remove global settings, keeping only `settings_id`"""
-    settings_id = int(settings_id)   # prevents SQL injection
+    settings_id = int(settings_id)  # prevents SQL injection
     con = sqlite3.connect(full_path)
     try:
         with con:
