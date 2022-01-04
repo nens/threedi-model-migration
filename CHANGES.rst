@@ -2,7 +2,7 @@
 History
 =======
 
-0.6.2 (unreleased)
+0.7.0 (2022-01-04)
 ------------------
 
 - Adapt schematisation name and slug to be more similar to the old convention and to
