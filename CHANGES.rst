@@ -5,7 +5,7 @@ History
 0.7.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix underscores in project name.
 
 
 0.7.0 (2022-01-04)
