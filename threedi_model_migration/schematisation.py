@@ -29,6 +29,8 @@ class SchemaRevision:
     sqlite: File
     rasters: List[Raster]
 
+    version: int = None
+
     def __repr__(self):
         return f"SchemaRevision({self.revision_nr})"
 

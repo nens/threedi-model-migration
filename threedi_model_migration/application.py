@@ -331,6 +331,7 @@ def report(base_path: Path):
         "revision_count",
         "first_rev_nr",
         "last_rev_nr",
+        "last_rev_version",
     ]
 
     with Path("repositories.csv").open("w", errors="surrogateescape") as f1, Path(
@@ -375,6 +376,7 @@ def report(base_path: Path):
                     "revision_count": len(schematisation.revisions),
                     "first_rev_nr": schematisation.revisions[-1].revision_nr,
                     "last_rev_nr": schematisation.revisions[0].revision_nr,
+                    "last_rev_version": schematisation.revisions[0].version,
                 }
                 writer2.writerow(record)
 

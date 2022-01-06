@@ -5,7 +5,7 @@ History
 0.8.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Add sqlite version to SchemaRevision and report.
 
 
 0.8.0 (2022-01-04)
