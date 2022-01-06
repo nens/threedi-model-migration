@@ -2,7 +2,7 @@
 History
 =======
 
-0.8.1 (unreleased)
+0.9.0 (2022-01-06)
 ------------------
 
 - Use `dem_file` instead of `dem_raw_file` for schematisation revisions.
