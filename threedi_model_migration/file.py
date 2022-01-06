@@ -15,7 +15,6 @@ SQLITE_COMPRESSION_RATIO = 7
 
 class RasterOptions(Enum):
     dem_file = "dem_file"
-    # dem_raw_file = "dem_raw_file"
     equilibrium_infiltration_rate_file = "equilibrium_infiltration_rate_file"
     frict_coef_file = "frict_coef_file"
     initial_groundwater_level_file = "initial_groundwater_level_file"

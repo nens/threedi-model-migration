@@ -5,6 +5,8 @@ History
 0.8.1 (unreleased)
 ------------------
 
+- Use `dem_file` instead of `dem_raw_file` for schematisation revisions.
+
 - Add sqlite version to SchemaRevision and report.
 
 
