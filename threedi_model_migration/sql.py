@@ -47,6 +47,7 @@ DELETE_GLOBAL_SETTING = "DELETE FROM v2_global_settings WHERE id <> {settings_id
 DELETE_AGG_SETTING = (
     "DELETE FROM v2_aggregation_settings WHERE global_settings_id <> {settings_id}"
 )
+VERSION_SQL = "south_migrationhistory.id FROM south_migrationhistory ORDER BY south_migrationhistory.id DESC LIMIT 1"
 
 
 def select(full_path, query):
@@ -63,7 +64,7 @@ def select(full_path, query):
 
 def filter_global_settings(full_path, settings_id):
     """Remove global settings, keeping only `settings_id`"""
-    settings_id = int(settings_id)   # prevents SQL injection
+    settings_id = int(settings_id)  # prevents SQL injection
     con = sqlite3.connect(full_path)
     try:
         with con:

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = "0.6.2.dev0"
+version = "0.8.1.dev0"
 
 with open("README.rst") as readme_file:
     readme = readme_file.read()
@@ -40,8 +40,8 @@ setup(
     install_requires=requirements,
     long_description=readme + "\n\n" + history,
     include_package_data=True,
-    keywords="threedi_model_migration",
-    name="threedi_model_migration",
+    keywords="threedi-model-migration",
+    name="threedi-model-migration",
     packages=find_packages(
         include=["threedi_model_migration", "threedi_model_migration.*"]
     ),
@@ -52,7 +52,7 @@ setup(
         "amqp": ["pika"],
         "sentry": ["sentry-sdk"],
     },
-    url="https://github.com/nens/threedi_model_migration",
+    url="https://github.com/nens/threedi-model-migration",
     version=version,
     zip_safe=False,
 )

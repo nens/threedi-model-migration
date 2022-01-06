@@ -2,10 +2,33 @@
 History
 =======
 
-0.6.2 (unreleased)
+0.8.1 (unreleased)
 ------------------
 
 - Use `dem_file` instead of `dem_raw_file` for schematisation revisions.
+
+- Add sqlite version to SchemaRevision and report.
+
+
+0.8.0 (2022-01-04)
+------------------
+
+- Extract sqlite version in inspect.
+
+
+0.7.1 (2022-01-04)
+------------------
+
+- Fix underscores in project name.
+
+
+0.7.0 (2022-01-04)
+------------------
+
+- Adapt schematisation name and slug to be more similar to the old convention and to
+  fix slug uniqueness issues.
+
+- Changed Schematisation.sqlite_name to Schematisation.sqlite_path.
 
 
 0.6.1 (2021-12-20)

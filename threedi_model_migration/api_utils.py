@@ -77,7 +77,7 @@ def get_or_create_schematisation(
         tags=["models.lizard.net"],
         meta={
             "repository": schematisation.repo_slug,
-            "sqlite_name": schematisation.sqlite_name,
+            "sqlite_path": str(schematisation.sqlite_path),
             "settings_id": schematisation.settings_id,
             "settings_name": schematisation.settings_name,
             **schematisation.metadata.meta,

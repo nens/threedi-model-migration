@@ -37,7 +37,7 @@ def gen_repo(*revision_sqlites, changes=None):
         # One revision, one sqlite, one settings entry
         (
             gen_repo([Sql(Path("db1"), settings=[Sett(1, "a")])]),
-            ["testrepo - db1 - 1 a"],
+            ["testrepo - db1_a (1)"],
             [[0]],
         ),
         # Two revisions with the same sqlite and settings
@@ -46,7 +46,7 @@ def gen_repo(*revision_sqlites, changes=None):
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
-            ["testrepo - db1 - 1 a"],
+            ["testrepo - db1_a (1)"],
             [[1, 0]],
         ),
         # One revision with two sqlites with the same settings
@@ -57,28 +57,18 @@ def gen_repo(*revision_sqlites, changes=None):
                     Sql(Path("db2"), settings=[Sett(1, "a")]),
                 ]
             ),
-            ["testrepo - db1 - 1 a", "testrepo - db2 - 1 a"],
+            ["testrepo - db1_a (1)", "testrepo - db2_a (1)"],
             [[0], [0]],
         ),
-        # One revision with one sqlites with two settings
+        # One revision with one sqlite with two settings
         (
             gen_repo(
                 [
-                    Sql(Path("db1"), settings=[Sett(1, "a")]),
-                    Sql(Path("db1"), settings=[Sett(2, "b")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a"), Sett(2, "b")]),
                 ]
             ),
-            ["testrepo - db1 - 1 a", "testrepo - db1 - 2 b"],
+            ["testrepo - db1_a (1)", "testrepo - db1_b (2)"],
             [[0], [0]],
-        ),
-        # Two revisions with one sqlites with different settings ("settings renumbered")
-        (
-            gen_repo(
-                [Sql(Path("db1"), settings=[Sett(2, "b")])],
-                [Sql(Path("db1"), settings=[Sett(1, "a")])],
-            ),
-            ["testrepo - db1 - 1 a", "testrepo - db1 - 2 b"],
-            [[0], [1]],
         ),
         # Two revisions with the same sqlite and settings, one sqlite added
         (
@@ -89,19 +79,19 @@ def gen_repo(*revision_sqlites, changes=None):
                 ],
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
-            ["testrepo - db1 - 1 a", "testrepo - db2 - 1 a"],
+            ["testrepo - db1_a (1)", "testrepo - db2_a (1)"],
             [[1, 0], [1]],
         ),
         # Two revisions with the same sqlite and settings, one settings entry added
         (
             gen_repo(
                 [
-                    Sql(Path("db1"), settings=[Sett(1, "a")]),
-                    Sql(Path("db1"), settings=[Sett(2, "b")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a"), Sett(2, "b")]),
+                    Sql(Path("db1"), settings=[]),
                 ],
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
-            ["testrepo - db1 - 1 a", "testrepo - db1 - 2 b"],
+            ["testrepo - db1_a (1)", "testrepo - db1_b (2)"],
             [[1, 0], [1]],
         ),
         # Setting is renamed: it is tracked (and the last revision will set the name)
@@ -110,23 +100,21 @@ def gen_repo(*revision_sqlites, changes=None):
                 [Sql(Path("db1"), settings=[Sett(1, "b")])],
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
-            ["testrepo - db1 - 1 b"],
+            ["testrepo - db1_b (1)"],
             [[1, 0]],
         ),
         # Settings entry skips a revision
         (
             gen_repo(
                 [
-                    Sql(Path("db1"), settings=[Sett(1, "a")]),
-                    Sql(Path("db1"), settings=[Sett(2, "c")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a"), Sett(2, "c")]),
                 ],
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
                 [
-                    Sql(Path("db1"), settings=[Sett(1, "a")]),
-                    Sql(Path("db1"), settings=[Sett(2, "b")]),
+                    Sql(Path("db1"), settings=[Sett(1, "a"), Sett(2, "b")]),
                 ],
             ),
-            ["testrepo - db1 - 1 a", "testrepo - db1 - 2 c"],
+            ["testrepo - db1_a (1)", "testrepo - db1_c (2)"],
             [[2, 1, 0], [2, 0]],
         ),
         # Renaming an sqlite is not allowed
@@ -135,7 +123,7 @@ def gen_repo(*revision_sqlites, changes=None):
                 [Sql(Path("db2"), settings=[Sett(1, "a")])],
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
             ),
-            ["testrepo - db1 - 1 a", "testrepo - db2 - 1 a"],
+            ["testrepo - db1_a (1)", "testrepo - db2_a (1)"],
             [[0], [1]],
         ),
         # File is missing in changet of 2nd revision
@@ -145,7 +133,7 @@ def gen_repo(*revision_sqlites, changes=None):
                 [Sql(Path("db1"), settings=[Sett(1, "a")])],
                 changes=[[], [Path("db1")]],
             ),
-            ["testrepo - db1 - 1 a"],
+            ["testrepo - db1_a (1)"],
             [[0]],
         ),
         # Sqlite is missing in changet of 2nd revision but a raster was changed
@@ -169,7 +157,7 @@ def gen_repo(*revision_sqlites, changes=None):
                 ],
                 changes=[[Path("r.tiff")], [Path("db1"), Path("r.tiff")]],
             ),
-            ["testrepo - db1 - 1 a"],
+            ["testrepo - db1_a (1)"],
             [[1, 0]],
         ),
         # Sqlite is missing in changet of 2nd revision and no raster was changed
@@ -193,8 +181,17 @@ def gen_repo(*revision_sqlites, changes=None):
                 ],
                 changes=[[], [Path("db1"), Path("r.tiff")]],
             ),
-            ["testrepo - db1 - 1 a"],
+            ["testrepo - db1_a (1)"],
             [[0]],
+        ),
+        # The case and interpunction in filenames is ignored
+        (
+            gen_repo(
+                [Sql(Path("db1a"), settings=[Sett(1, "a")])],
+                [Sql(Path("DB1;a"), settings=[Sett(1, "a")])],
+            ),
+            ["testrepo - db1a_a (1)"],
+            [[1, 0]],
         ),
     ],
 )
