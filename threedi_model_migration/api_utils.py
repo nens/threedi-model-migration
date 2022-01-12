@@ -218,11 +218,7 @@ def upload_raster(
 ):
     raster_type = RasterOptions(raster.raster_type).value
     logger.info(f"Creating '{raster_type}' raster...")
-    obj = OARaster(
-        name=raster.path.name,
-        md5sum=raster.md5,
-        type=raster_type
-    )
+    obj = OARaster(name=raster.path.name, md5sum=raster.md5, type=raster_type)
     resp = api.schematisations_revisions_rasters_create(rev_id, schema_id, obj)
     if resp.file and resp.file.state == "uploaded":
         logger.info(f"Raster '{str(raster.path)}' already existed, skipping upload.")
@@ -315,3 +311,7 @@ def commit_revision(
         break
 
     logger.info(f"Committed revision {revision.revision_nr}.")
+
+
+def check_revision(api: V3BetaApi, rev_id: int, schema_id: int):
+    api.schematisations_revisions_check(rev_id, schema_id, {})

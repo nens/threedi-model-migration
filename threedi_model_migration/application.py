@@ -468,6 +468,9 @@ def push(
                     api, oa_rev.id, oa_schema.id, revision, user_lut=user_lut
                 )
 
+            if len(revisions) > 0:
+                api_utils.check_revision(api, oa_rev.id, oa_schema.id)
+
 
 def patch_uuids(
     base_path: Path,
