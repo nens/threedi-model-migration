@@ -12,7 +12,7 @@ requirements = [
     "Click>=7.0",
     "mercurial",
     "pytz",
-    "threedi-api-client @ git+https://github.com/nens/threedi-api-client.git@master",
+    "threedi-api-client>=4.0.0b2",
 ]
 
 test_requirements = ["pytest>=3", "factory_boy"]

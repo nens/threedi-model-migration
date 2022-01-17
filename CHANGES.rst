@@ -7,6 +7,8 @@ History
 
 - Run modelchecker on the latest revision in each schematisation.
 
+- Adapt threedi-api-client requirement to the beta release.
+
 
 0.9.0 (2022-01-06)
 ------------------
