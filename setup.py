@@ -22,7 +22,7 @@ setup(
     author_email="casper.vanderwel@nelen-schuurmans.nl",
     python_requires=">=3.7",
     classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
