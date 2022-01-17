@@ -2,7 +2,7 @@
 History
 =======
 
-0.9.1 (unreleased)
+1.0.0 (2022-01-17)
 ------------------
 
 - Run modelchecker on the latest revision in each schematisation.
