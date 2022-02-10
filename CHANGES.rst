@@ -2,7 +2,7 @@
 History
 =======
 
-1.0.1 (unreleased)
+1.0.1 (2022-02-10)
 ------------------
 
 - Fixed permissions of zipped sqlite file.
