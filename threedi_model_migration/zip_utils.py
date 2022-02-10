@@ -11,7 +11,7 @@ import zipfile
 def _add_file(zip_file, path, zip_path=None):
     zip_info = zipfile.ZipInfo.from_file(path, zip_path)
     zip_info.date_time = (2000, 1, 1, 0, 0, 0)
-    zip_info.external_attr = (stat.S_IFREG | 0o444) << 16
+    zip_info.external_attr = (stat.S_IFREG | 0o664) << 16
     with open(path, "rb") as fp:
         zip_file.writestr(
             zip_info,

@@ -5,7 +5,7 @@ History
 1.0.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fixed permissions of zipped sqlite file.
 
 
 1.0.0 (2022-01-17)
