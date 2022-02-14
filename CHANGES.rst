@@ -2,7 +2,7 @@
 History
 =======
 
-1.0.3 (unreleased)
+1.0.3 (2022-02-14)
 ------------------
 
 - Fix mistake in setting upload timeout.
