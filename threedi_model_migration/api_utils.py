@@ -221,7 +221,7 @@ def upload_raster(
 ):
     raster_type = RasterOptions(raster.raster_type).value
     logger.info(f"Creating '{raster_type}' raster...")
-    obj = OARaster(name=raster.path.name, md5sum=raster.md5, type=raster_type)
+    obj = OARaster(name=raster.path.name[:60], md5sum=raster.md5, type=raster_type)
     resp = api.schematisations_revisions_rasters_create(rev_id, schema_id, obj)
     if resp.file and resp.file.state == "uploaded":
         logger.info(f"Raster '{str(raster.path)}' already existed, skipping upload.")
@@ -298,7 +298,7 @@ def commit_revision(
     # In the API, the 'user' is just a string and 'commit_user' is an FK to user
     user = revision.commit_user
     obj = OACommit(
-        commit_message=revision.commit_msg,
+        commit_message=revision.commit_msg if revision.commit_msg != "" else None,
         commit_date=revision.last_update,
         user=user,
     )

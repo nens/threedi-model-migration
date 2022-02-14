@@ -7,6 +7,12 @@ History
 
 - Increase timeout for file uploads.
 
+- Wait longer for rasters to become "uploaded".
+
+- Shorted raster names to 60 characters max.
+
+- Replace empty commit messages by None.
+
 
 1.0.1 (2022-02-10)
 ------------------
