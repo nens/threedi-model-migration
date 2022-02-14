@@ -2,7 +2,7 @@
 History
 =======
 
-1.0.2 (unreleased)
+1.0.2 (2022-02-14)
 ------------------
 
 - Increase timeout for file uploads.
