@@ -251,7 +251,7 @@ def commit_revision(
     user_lut: Optional[Dict[str, str]] = None,
 ):
     # First wait for all files to have turned to 'uploaded'
-    for wait_time in [0.5, 1.0, 2.0, 10.0]:
+    for wait_time in [0.5, 1.0, 2.0, 10.0, 30.0, 60.0, 120.0, 300.0]:
         oa_revision = api.schematisations_revisions_read(rev_id, schema_id)
         states = [oa_revision.sqlite.file.state]
         states.extend([raster.file.state for raster in oa_revision.rasters])
