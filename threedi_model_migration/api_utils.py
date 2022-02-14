@@ -282,10 +282,11 @@ def commit_revision(
                     logger.exception(f"Error deleting revision {rev_id}")
 
         for raster in oa_revision.rasters:
-            if raster.file.state in ("uploaded", "created"):
+            file = raster.file
+            if file.state in ("uploaded", "created"):
                 continue
             logger.exception(
-                f"File (raster) with pk={raster.file.id} has unexpected state "
+                f"File (raster) with pk={file.id} has unexpected state "
                 f"'{file.state}'. Omitting raster."
             )
             api.schematisations_revisions_rasters_delete(raster.id, rev_id, schema_id)
