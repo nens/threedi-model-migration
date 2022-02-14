@@ -26,7 +26,10 @@ import hashlib
 import json
 import logging
 import time
+import urllib3
 
+
+UPLOAD_TIMEOUT = urllib3.timeout(connect=60, read=600)
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +213,7 @@ def upload_sqlite(api: V3BetaApi, rev_id: int, schema_id: int, sqlite_path: Path
             )
         else:
             logger.info(f"Uploading '{str(sqlite_path.name)}'...")
-            upload_fileobj(upload.put_url, f, md5=md5.digest())
+            upload_fileobj(upload.put_url, f, timeout=UPLOAD_TIMEOUT, md5=md5.digest())
 
 
 def upload_raster(
@@ -232,7 +235,12 @@ def upload_raster(
         resp.id, rev_id, schema_id, obj
     )
 
-    upload_file(upload.put_url, repo_path / raster.path, md5=bytes.fromhex(raster.md5))
+    upload_file(
+        upload.put_url,
+        repo_path / raster.path,
+        timeout=UPLOAD_TIMEOUT,
+        md5=bytes.fromhex(raster.md5),
+    )
 
 
 def commit_revision(
