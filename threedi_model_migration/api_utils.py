@@ -29,7 +29,7 @@ import time
 import urllib3
 
 
-UPLOAD_TIMEOUT = urllib3.timeout(connect=60, read=600)
+UPLOAD_TIMEOUT = urllib3.Timeout(connect=60, read=600)
 
 logger = logging.getLogger(__name__)
 

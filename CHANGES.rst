@@ -5,7 +5,9 @@ History
 1.0.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix mistake in setting upload timeout.
+
+- Increase sentry message body size to 2048 characters.
 
 
 1.0.2 (2022-02-14)
