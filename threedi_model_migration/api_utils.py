@@ -65,7 +65,7 @@ def get_or_create_schematisation(
         return resp.results[0], False
     elif resp.count == 1 and mode is PushMode.overwrite:
         logger.info(
-            f"Schematisation '{schematisation.name}' already exists, deleting..."
+            f"Schematisation '{make_utf8(schematisation.name)}' already exists, deleting..."
         )
         delete_schematisation(api, resp.results[0].id)
     elif resp.count == 0 and mode is PushMode.incremental:
@@ -195,7 +195,7 @@ def get_or_create_revision(
 
 
 def upload_sqlite(api: V3BetaApi, rev_id: int, schema_id: int, sqlite_path: Path):
-    logger.info(f"Creating {str(sqlite_path.name)}...")
+    logger.info(f"Creating {make_utf8(str(sqlite_path.name))}...")
 
     # Sqlite files are zipped; the md5 sum is that of the zipped file (so: recompute)
     with SpooledTemporaryFile(mode="w+b") as f:
@@ -210,10 +210,10 @@ def upload_sqlite(api: V3BetaApi, rev_id: int, schema_id: int, sqlite_path: Path
         upload = api.schematisations_revisions_sqlite_upload(rev_id, schema_id, obj)
         if upload.put_url is None:
             logger.info(
-                f"Sqlite '{str(sqlite_path.name)}' already existed, skipping upload."
+                f"Sqlite '{make_utf8(str(sqlite_path.name))}' already existed, skipping upload."
             )
         else:
-            logger.info(f"Uploading '{str(sqlite_path.name)}'...")
+            logger.info(f"Uploading '{make_utf8(str(sqlite_path.name))}'...")
             upload_fileobj(upload.put_url, f, timeout=UPLOAD_TIMEOUT, md5=md5.digest())
 
 
