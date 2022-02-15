@@ -199,7 +199,7 @@ def upload_sqlite(api: V3BetaApi, rev_id: int, schema_id: int, sqlite_path: Path
 
     # Sqlite files are zipped; the md5 sum is that of the zipped file (so: recompute)
     with SpooledTemporaryFile(mode="w+b") as f:
-        deterministic_zip(f, [sqlite_path])
+        deterministic_zip(f, [make_utf8(str(sqlite_path))])
         f.seek(0)
         md5 = hashlib.md5(f.read())
         f.seek(0)
