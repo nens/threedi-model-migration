@@ -2,7 +2,7 @@
 History
 =======
 
-1.0.4 (unreleased)
+1.0.4 (2022-02-15)
 ------------------
 
 - Fix issues with non-UTF-8 characters in metadata.
