@@ -21,9 +21,9 @@ def _add_file(zip_file, path, zip_path=None):
         )
 
 
-def deterministic_zip(fp: BinaryIO, paths: List[Path]):
+def deterministic_zip(fp: BinaryIO, paths: List[str]):
     with zipfile.ZipFile(fp, "w") as zip_file:
         for path in paths:
-            if not path.is_file():
+            if not Path(path).is_file():
                 raise ValueError(f"{path} is not a file")
             _add_file(zip_file, path, path.name)
