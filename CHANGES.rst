@@ -2,7 +2,7 @@
 History
 =======
 
-1.0.5 (unreleased)
+1.0.5 (2022-02-15)
 ------------------
 
 - Fix issues with non-UTF-8 characters in zip files.
