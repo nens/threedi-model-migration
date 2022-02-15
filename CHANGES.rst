@@ -5,7 +5,7 @@ History
 1.0.5 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix issues with non-UTF-8 characters in zip files.
 
 
 1.0.4 (2022-02-15)
