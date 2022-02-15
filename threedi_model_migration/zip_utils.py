@@ -1,6 +1,5 @@
 """Edited from: https://github.com/bboe/deterministic_zip/blob/main/deterministic_zip/__init__.py"""
 
-from pathlib import Path
 from typing import BinaryIO
 from typing import List
 
@@ -24,4 +23,4 @@ def _add_file(zip_file, path, zip_path=None):
 def deterministic_zip(fp: BinaryIO, paths: List[str]):
     with zipfile.ZipFile(fp, "w") as zip_file:
         for path in paths:
-            _add_file(zip_file, path, path.name)
+            _add_file(zip_file, path, path)
