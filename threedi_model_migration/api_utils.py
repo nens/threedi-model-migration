@@ -2,6 +2,7 @@ from .file import Raster
 from .file import RasterOptions
 from .schematisation import SchemaRevision
 from .schematisation import Schematisation
+from .text_utils import make_utf8
 from .zip_utils import deterministic_zip
 from enum import Enum
 from pathlib import Path
@@ -75,14 +76,14 @@ def get_or_create_schematisation(
     logger.info(f"Creating schematisation '{schematisation.slug}'...")
     obj = OASchematisation(
         owner=schematisation.metadata.owner,
-        name=schematisation.name,
+        name=make_utf8(schematisation.name),
         slug=schematisation.slug,
         tags=["models.lizard.net"],
         meta={
             "repository": schematisation.repo_slug,
-            "sqlite_path": str(schematisation.sqlite_path),
+            "sqlite_path": make_utf8(str(schematisation.sqlite_path)),
             "settings_id": schematisation.settings_id,
-            "settings_name": schematisation.settings_name,
+            "settings_name": make_utf8(schematisation.settings_name),
             **schematisation.metadata.meta,
         },
         created_by=schematisation.metadata.created_by,
@@ -203,7 +204,7 @@ def upload_sqlite(api: V3BetaApi, rev_id: int, schema_id: int, sqlite_path: Path
         md5 = hashlib.md5(f.read())
         f.seek(0)
         obj = OASqlite(
-            filename=sqlite_path.stem + ".zip",
+            filename=make_utf8(sqlite_path.stem) + ".zip",
             md5sum=md5.hexdigest(),
         )
         upload = api.schematisations_revisions_sqlite_upload(rev_id, schema_id, obj)
@@ -221,7 +222,9 @@ def upload_raster(
 ):
     raster_type = RasterOptions(raster.raster_type).value
     logger.info(f"Creating '{raster_type}' raster...")
-    obj = OARaster(name=raster.path.name[:60], md5sum=raster.md5, type=raster_type)
+    obj = OARaster(
+        name=make_utf8(raster.path.name)[:60], md5sum=raster.md5, type=raster_type
+    )
     resp = api.schematisations_revisions_rasters_create(rev_id, schema_id, obj)
     if resp.file and resp.file.state == "uploaded":
         logger.info(f"Raster '{str(raster.path)}' already existed, skipping upload.")
@@ -229,7 +232,7 @@ def upload_raster(
 
     logger.info(f"Uploading '{str(raster.path)}'...")
     obj = OAUpload(
-        filename=raster.path.name,
+        filename=make_utf8(raster.path.name),
     )
     upload = api.schematisations_revisions_rasters_upload(
         resp.id, rev_id, schema_id, obj
@@ -298,7 +301,9 @@ def commit_revision(
     # In the API, the 'user' is just a string and 'commit_user' is an FK to user
     user = revision.commit_user
     obj = OACommit(
-        commit_message=revision.commit_msg if revision.commit_msg != "" else None,
+        commit_message=make_utf8(revision.commit_msg)
+        if revision.commit_msg != ""
+        else None,
         commit_date=revision.last_update,
         user=user,
     )

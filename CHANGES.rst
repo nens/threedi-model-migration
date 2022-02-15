@@ -5,7 +5,7 @@ History
 1.0.4 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix issues with non-UTF-8 characters in metadata.
 
 
 1.0.3 (2022-02-14)

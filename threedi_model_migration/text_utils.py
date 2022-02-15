@@ -21,3 +21,8 @@ def slugify(value, allow_unicode=False):
         )
     value = re.sub(r"[^\w\s-]", "", value).strip().lower()
     return re.sub(r"[-\s]+", "-", value)
+
+
+def make_utf8(value):
+    """Remove non-utf-8 characters with a question mark"""
+    return value.encode("utf-8", "replace").decode("utf-8")
