@@ -2,7 +2,7 @@
 History
 =======
 
-1.0.7 (unreleased)
+1.0.7 (2022-03-03)
 ------------------
 
 - Fix largefile clear if a non-bash shell is used.
