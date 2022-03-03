@@ -5,7 +5,7 @@ History
 1.0.7 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix largefile clear if a non-bash shell is used.
 
 
 1.0.6 (2022-02-15)
