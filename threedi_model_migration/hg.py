@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote_to_bytes
+import shutil
 
 import logging
 import os
@@ -76,8 +77,13 @@ def pull_all_largefiles(repo_path, remote):
 
 def clear_largefiles_cache():
     cachedir = Path.home() / ".cache/largefiles"
-    if cachedir.exists():
-        get_output("rm -rf *", cwd=cachedir)
+    if not cachedir.exists():
+        return
+    for root, dirs, files in os.walk(cachedir.as_posix()):
+        for f in files:
+            os.unlink(os.path.join(root, f))
+        for d in dirs:
+            shutil.rmtree(os.path.join(root, d))
 
 
 def init(repo_path):
